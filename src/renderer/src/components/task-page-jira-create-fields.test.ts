@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   buildJiraCreateCustomFields,
   buildJiraCreateFieldValue,
+  buildJiraCreateSubmission,
   findJiraCreateAllowedValue,
   getJiraCreateAllowedValueLabel,
   getJiraCreateOptionPayload,
@@ -25,6 +26,8 @@ describe('isVisibleJiraCreateField', () => {
     { key: 'issuetype', required: true, expected: false },
     { key: 'summary', required: true, expected: false },
     { key: 'description', required: true, expected: false },
+    // the dialog renders a dedicated assignee picker, so the generic field must not show
+    { key: 'assignee', required: true, expected: false },
     // characterization: current behavior — the system-field filter is exact-match
     // and case-sensitive, so a differently-cased key stays visible.
     { key: 'Summary', required: true, expected: true }
@@ -220,5 +223,49 @@ describe('buildJiraCreateCustomFields', () => {
 
   it('treats a missing draft entry as blank', () => {
     expect(buildJiraCreateCustomFields([field({ key: 'a' })], { other: 'x' })).toBeUndefined()
+  })
+})
+
+describe('buildJiraCreateSubmission', () => {
+  const userField = field({ key: 'customfield_9', schema: { type: 'user' } })
+
+  it('omits assignee and userFieldKeys for the Automatic default', () => {
+    expect(buildJiraCreateSubmission([field({ key: 'a' })], { a: 'one' }, null)).toEqual({
+      customFields: { a: 'one' },
+      userFieldKeys: undefined
+    })
+    expect(buildJiraCreateSubmission([], {}, undefined)).toEqual({
+      customFields: undefined,
+      userFieldKeys: undefined
+    })
+  })
+
+  it('adds the picked assignee to customFields and names it as a user field', () => {
+    expect(buildJiraCreateSubmission([], {}, 'acc-1')).toEqual({
+      customFields: { assignee: 'acc-1' },
+      userFieldKeys: ['assignee']
+    })
+  })
+
+  it('names only the user-typed fields that carry a value', () => {
+    expect(
+      buildJiraCreateSubmission(
+        [userField, field({ key: 'customfield_8', schema: { type: 'user' } })],
+        { customfield_9: 'acc-9' },
+        'acc-1'
+      )
+    ).toEqual({
+      customFields: { customfield_9: 'acc-9', assignee: 'acc-1' },
+      userFieldKeys: ['customfield_9', 'assignee']
+    })
+  })
+
+  it('keeps userFieldKeys absent when user fields exist but are blank', () => {
+    // Why it matters: a non-empty key list trips the remote user-fields
+    // capability gate, which older hosts fail even with nothing to shape.
+    expect(buildJiraCreateSubmission([userField], {}, null)).toEqual({
+      customFields: undefined,
+      userFieldKeys: undefined
+    })
   })
 })

@@ -1,6 +1,6 @@
 import type { TaskPageLinearIssueCreationModel } from './use-task-page-linear-issue-creation'
 import { useCallback } from 'react'
-import { buildJiraCreateCustomFields } from '@/components/task-page-jira-create-fields'
+import { buildJiraCreateSubmission } from '@/components/task-page-jira-create-fields'
 import { jiraCreateIssue, jiraGetIssue } from '@/runtime/runtime-jira-client'
 import { toast } from 'sonner'
 import { translate } from '@/i18n/i18n'
@@ -23,6 +23,8 @@ export function useTaskPageJiraIssueCreation(model: TaskPageLinearIssueCreationM
     jiraCreateFieldsLoading,
     newJiraIssueCustomFieldValues,
     setNewJiraIssueCustomFieldValues,
+    newJiraIssueAssignee,
+    setNewJiraIssueAssignee,
     discardNewJiraIssueDraft,
     newJiraIssueTargetProject,
     newJiraIssueTargetType,
@@ -37,9 +39,10 @@ export function useTaskPageJiraIssueCreation(model: TaskPageLinearIssueCreationM
     if (!title || newJiraIssueSubmitting || hasMissingJiraCreateField || jiraCreateFieldsLoading) {
       return
     }
-    const customFields = buildJiraCreateCustomFields(
+    const { customFields, userFieldKeys } = buildJiraCreateSubmission(
       visibleJiraCreateFields,
-      newJiraIssueCustomFieldValues
+      newJiraIssueCustomFieldValues,
+      newJiraIssueAssignee?.accountId
     )
     setNewJiraIssueSubmitting(true)
     const submitProviderRuntimeContextKey = providerRuntimeContextKey
@@ -50,7 +53,8 @@ export function useTaskPageJiraIssueCreation(model: TaskPageLinearIssueCreationM
         issueTypeId: newJiraIssueTargetType.id,
         title,
         description: newJiraIssueBody || undefined,
-        customFields
+        customFields,
+        userFieldKeys
       })
       if (submitProviderRuntimeContextKey !== providerRuntimeContextKeyRef.current) {
         return
@@ -80,6 +84,7 @@ export function useTaskPageJiraIssueCreation(model: TaskPageLinearIssueCreationM
       setNewJiraIssueTitle('')
       setNewJiraIssueBody('')
       setNewJiraIssueCustomFieldValues({})
+      setNewJiraIssueAssignee(null)
       setJiraRefreshNonce((n) => n + 1)
       void jiraGetIssue(
         jiraTaskSourceContext ?? settings,
@@ -113,6 +118,7 @@ export function useTaskPageJiraIssueCreation(model: TaskPageLinearIssueCreationM
   }, [
     hasMissingJiraCreateField,
     jiraCreateFieldsLoading,
+    newJiraIssueAssignee,
     newJiraIssueBody,
     newJiraIssueCustomFieldValues,
     newJiraIssueSubmitting,
@@ -132,6 +138,7 @@ export function useTaskPageJiraIssueCreation(model: TaskPageLinearIssueCreationM
     setNewJiraIssueTitle,
     setNewJiraIssueBody,
     setNewJiraIssueCustomFieldValues,
+    setNewJiraIssueAssignee,
     setNewJiraIssueSubmitting
   ])
   const nextModel = model as typeof model & {

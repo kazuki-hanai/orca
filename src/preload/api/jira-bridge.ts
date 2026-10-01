@@ -46,6 +46,7 @@ export const jiraApi = {
     title: string
     description?: string
     customFields?: Record<string, unknown>
+    userFieldKeys?: string[]
   }): Promise<{ ok: true; id: string; key: string; url: string } | { ok: false; error: string }> =>
     ipcRenderer.invoke('jira:createIssue', args),
 

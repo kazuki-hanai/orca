@@ -1,6 +1,6 @@
 import type { TaskPageGitHubMutationStateModel } from './use-task-page-github-mutation-state'
 import { useState, useRef, useEffect } from 'react'
-import type { JiraIssueType, JiraCreateField } from '../../../shared/jira-types'
+import type { JiraIssueType, JiraCreateField, JiraUser } from '../../../shared/jira-types'
 import { useTaskCreationDraftRetention } from '@/components/use-task-creation-draft-retention'
 import { writeNewJiraIssueDraft } from './task-page-draft-storage'
 import { useTaskPageJiraCreationProjects } from './use-task-page-jira-creation-projects'
@@ -39,6 +39,8 @@ export function useTaskPageJiraCreationStatePrelude(model: TaskPageGitHubMutatio
   const [newJiraIssueCustomFieldValues, setNewJiraIssueCustomFieldValues] = useState<
     Record<string, string>
   >({})
+  // null = Jira's project default ("Automatic") — the create payload omits the field.
+  const [newJiraIssueAssignee, setNewJiraIssueAssignee] = useState<JiraUser | null>(null)
   const discardNewJiraIssueDraft = useTaskCreationDraftRetention({
     open: newJiraIssueOpen,
     draft: {
@@ -83,6 +85,7 @@ export function useTaskPageJiraCreationStatePrelude(model: TaskPageGitHubMutatio
       setJiraCreateFieldsLoading(false)
       setJiraCreateFieldsError(null)
       setNewJiraIssueCustomFieldValues({})
+      setNewJiraIssueAssignee(null)
       setNewJiraIssueSubmitting(false)
     }
   }, [
@@ -134,6 +137,8 @@ export function useTaskPageJiraCreationStatePrelude(model: TaskPageGitHubMutatio
     setJiraCreateFieldsError: typeof setJiraCreateFieldsError
     newJiraIssueCustomFieldValues: typeof newJiraIssueCustomFieldValues
     setNewJiraIssueCustomFieldValues: typeof setNewJiraIssueCustomFieldValues
+    newJiraIssueAssignee: typeof newJiraIssueAssignee
+    setNewJiraIssueAssignee: typeof setNewJiraIssueAssignee
     discardNewJiraIssueDraft: typeof discardNewJiraIssueDraft
     previousProviderRuntimeContextKeyRef: typeof previousProviderRuntimeContextKeyRef
   }
@@ -168,6 +173,8 @@ export function useTaskPageJiraCreationStatePrelude(model: TaskPageGitHubMutatio
   nextModel.setJiraCreateFieldsError = setJiraCreateFieldsError
   nextModel.newJiraIssueCustomFieldValues = newJiraIssueCustomFieldValues
   nextModel.setNewJiraIssueCustomFieldValues = setNewJiraIssueCustomFieldValues
+  nextModel.newJiraIssueAssignee = newJiraIssueAssignee
+  nextModel.setNewJiraIssueAssignee = setNewJiraIssueAssignee
   nextModel.discardNewJiraIssueDraft = discardNewJiraIssueDraft
   nextModel.previousProviderRuntimeContextKeyRef = previousProviderRuntimeContextKeyRef
   return nextModel
