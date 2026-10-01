@@ -43,6 +43,12 @@ export function JiraUserOptionList({
  * not the display name a plain text box would collect, since Jira rejects a bare
  * string for user fields.
  */
+export type JiraUserPickerFixedOption = {
+  key: string
+  label: string
+  onSelect: () => void
+}
+
 export function JiraUserPicker({
   providerSettings,
   siteId,
@@ -50,7 +56,8 @@ export function JiraUserPicker({
   selectedUser,
   onSelect,
   disabled,
-  label
+  label,
+  fixedOptions
 }: {
   providerSettings: TaskSourceContext | GlobalSettings | null
   siteId?: string | null
@@ -59,6 +66,8 @@ export function JiraUserPicker({
   onSelect: (user: JiraUser) => void
   disabled?: boolean
   label: string
+  /** Rows pinned above the search results, e.g. "Automatic" or "Assign to me". */
+  fixedOptions?: JiraUserPickerFixedOption[]
 }): React.JSX.Element {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
@@ -130,6 +139,19 @@ export function JiraUserPicker({
           className="mb-1 h-7 text-[12px]"
           autoFocus
         />
+        {fixedOptions?.map((option) => (
+          <button
+            key={option.key}
+            type="button"
+            onClick={() => {
+              option.onSelect()
+              setOpen(false)
+            }}
+            className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-[12px] hover:bg-accent"
+          >
+            {option.label}
+          </button>
+        ))}
         {users.length === 0 && !loading ? (
           <p className="px-2 py-1.5 text-[12px] text-muted-foreground">
             {translate('components.jiraUserPicker.empty', 'No users found')}

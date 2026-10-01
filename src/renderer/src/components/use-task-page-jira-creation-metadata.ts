@@ -16,6 +16,7 @@ export function useTaskPageJiraCreationMetadata(model: TaskPageJiraCreationState
     setJiraCreateFieldsLoading,
     setJiraCreateFieldsError,
     setNewJiraIssueCustomFieldValues,
+    setNewJiraIssueAssignee,
     newJiraIssueTargetProject,
     newJiraIssueTargetType
   } = model
@@ -76,6 +77,7 @@ export function useTaskPageJiraCreationMetadata(model: TaskPageJiraCreationState
       setJiraCreateFieldsLoading(false)
       setJiraCreateFieldsError(null)
       setNewJiraIssueCustomFieldValues({})
+      setNewJiraIssueAssignee(null)
       return
     }
     let cancelled = false
@@ -83,6 +85,9 @@ export function useTaskPageJiraCreationMetadata(model: TaskPageJiraCreationState
     setJiraCreateFieldsLoading(true)
     setJiraCreateFieldsError(null)
     setNewJiraIssueCustomFieldValues({})
+    // Why: account ids are site-scoped, so a picked assignee must not survive a
+    // project (potentially site) switch any more than the custom field values do.
+    setNewJiraIssueAssignee(null)
     void jiraListCreateFields(
       jiraTaskSourceContext ?? settings,
       newJiraIssueTargetProject.id,
@@ -121,6 +126,7 @@ export function useTaskPageJiraCreationMetadata(model: TaskPageJiraCreationState
     newJiraIssueTargetType,
     jiraTaskSourceContext,
     setNewJiraIssueCustomFieldValues,
+    setNewJiraIssueAssignee,
     setJiraCreateFieldsLoading,
     setJiraCreateFields,
     setJiraCreateFieldsError
