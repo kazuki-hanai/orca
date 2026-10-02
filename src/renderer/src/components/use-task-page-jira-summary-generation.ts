@@ -39,6 +39,18 @@ export function useTaskPageJiraSummaryGeneration(model: TaskPageJiraIssueCreatio
     void window.api.jira.cancelGenerateIssueSummary()
   }, [newJiraIssueOpen])
 
+  // Why: unmounting the page must not strand a running generation on the host.
+  useEffect(
+    () => () => {
+      if (generatingRef.current) {
+        generationNonceRef.current += 1
+        generatingRef.current = false
+        void window.api.jira.cancelGenerateIssueSummary()
+      }
+    },
+    []
+  )
+
   const handleGenerateNewJiraIssueSummary = useCallback(async (): Promise<void> => {
     const description = newJiraIssueBody.trim()
     if (!description || generatingRef.current || newJiraIssueSubmitting) {
