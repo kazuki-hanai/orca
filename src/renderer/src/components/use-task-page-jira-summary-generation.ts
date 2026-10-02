@@ -6,6 +6,7 @@ import type { TaskPageJiraIssueCreationModel } from './use-task-page-jira-issue-
 export function useTaskPageJiraSummaryGeneration(model: TaskPageJiraIssueCreationModel) {
   const {
     newJiraIssueOpen,
+    newJiraIssueTitle,
     newJiraIssueBody,
     newJiraIssueSubmitting,
     newJiraIssueTargetProject,
@@ -44,6 +45,7 @@ export function useTaskPageJiraSummaryGeneration(model: TaskPageJiraIssueCreatio
       return
     }
     const nonce = ++generationNonceRef.current
+    const titleAtStart = newJiraIssueTitle
     generatingRef.current = true
     setNewJiraIssueSummaryGenerating(true)
     try {
@@ -67,7 +69,8 @@ export function useTaskPageJiraSummaryGeneration(model: TaskPageJiraIssueCreatio
         }
         return
       }
-      setNewJiraIssueTitle(result.summary)
+      // Why: a title the user typed during generation wins over the late result.
+      setNewJiraIssueTitle((current) => (current === titleAtStart ? result.summary : current))
     } catch (error) {
       if (nonce === generationNonceRef.current) {
         toast.error(
@@ -92,6 +95,7 @@ export function useTaskPageJiraSummaryGeneration(model: TaskPageJiraIssueCreatio
     newJiraIssueSubmitting,
     newJiraIssueTargetProject,
     newJiraIssueTargetType,
+    newJiraIssueTitle,
     setNewJiraIssueTitle
   ])
 

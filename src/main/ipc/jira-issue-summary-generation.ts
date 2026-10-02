@@ -16,10 +16,18 @@ import {
   generateJiraIssueSummaryFromContext
 } from '../text-generation/jira-issue-summary-text-generation'
 
-/** The create dialog has no workspace, so generations run from the home directory. */
+/**
+ * The create dialog has no workspace, so generations run from the home
+ * directory on the native host — same as folder-workspace title generation.
+ */
 function jiraSummaryGenerationCwd(): string {
   return os.homedir()
 }
+
+// Why: a lane cancellation token only exists once the plan starts; the
+// sequence pair closes the window where Stop lands during env preparation.
+let generationSeq = 0
+let canceledSeq = 0
 
 export function registerJiraIssueSummaryGenerationHandlers(
   store: Store,
@@ -34,6 +42,7 @@ export function registerJiraIssueSummaryGenerationHandlers(
       if (typeof args?.description !== 'string' || !args.description.trim()) {
         return { success: false, error: 'Description is required.' }
       }
+      const seq = ++generationSeq
       // Why: reuses the branch-name agent/model choice — both title free-form
       // work from a short text, and it spares a separate settings surface.
       const resolved = resolveTextGenerationParams(
@@ -52,6 +61,9 @@ export function registerJiraIssueSummaryGenerationHandlers(
       if (!localEnv.ok) {
         return { success: false, error: localEnv.error }
       }
+      if (canceledSeq >= seq) {
+        return { success: false, error: 'Generation canceled.', canceled: true }
+      }
       return generateJiraIssueSummaryFromContext(
         {
           description: args.description,
@@ -69,6 +81,7 @@ export function registerJiraIssueSummaryGenerationHandlers(
   )
 
   ipcMain.handle('jira:cancelGenerateIssueSummary', () => {
+    canceledSeq = generationSeq
     cancelGenerateJiraIssueSummaryLocal(jiraSummaryGenerationCwd())
   })
 }
