@@ -15,6 +15,14 @@ export const JIRA_REPORTER_FIELD_KEY = 'reporter'
 
 export const JIRA_ASSIGNEE_FIELD_KEY = 'assignee'
 
+/**
+ * True when the project + issue type's create screen accepts an assignee.
+ * Jira rejects creates that set a field absent from the create screen.
+ */
+export function hasJiraAssigneeCreateField(fields: readonly JiraCreateField[]): boolean {
+  return fields.some((field) => field.key === JIRA_ASSIGNEE_FIELD_KEY)
+}
+
 /** True for required create fields the dialog must render (system fields excluded). */
 export function isVisibleJiraCreateField(field: JiraCreateField): boolean {
   return field.required && !JIRA_CREATE_SYSTEM_FIELD_KEYS.has(field.key)

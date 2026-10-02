@@ -8,6 +8,7 @@ import {
   getJiraCreateAllowedValueLabel,
   getJiraCreateOptionPayload,
   getJiraUserCreateFieldKeys,
+  hasJiraAssigneeCreateField,
   isJiraScalarUserCreateField,
   isJiraUserCreateField,
   isVisibleJiraCreateField
@@ -223,6 +224,14 @@ describe('buildJiraCreateCustomFields', () => {
 
   it('treats a missing draft entry as blank', () => {
     expect(buildJiraCreateCustomFields([field({ key: 'a' })], { other: 'x' })).toBeUndefined()
+  })
+})
+
+describe('hasJiraAssigneeCreateField', () => {
+  it('detects whether the create screen accepts an assignee', () => {
+    expect(hasJiraAssigneeCreateField([field({ key: 'assignee', required: false })])).toBe(true)
+    expect(hasJiraAssigneeCreateField([field({ key: 'reporter' })])).toBe(false)
+    expect(hasJiraAssigneeCreateField([])).toBe(false)
   })
 })
 

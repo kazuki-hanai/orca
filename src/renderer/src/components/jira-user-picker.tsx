@@ -57,7 +57,8 @@ export function JiraUserPicker({
   onSelect,
   disabled,
   label,
-  fixedOptions
+  fixedOptions,
+  searchUsers
 }: {
   providerSettings: TaskSourceContext | GlobalSettings | null
   siteId?: string | null
@@ -68,6 +69,8 @@ export function JiraUserPicker({
   label: string
   /** Rows pinned above the search results, e.g. "Automatic" or "Assign to me". */
   fixedOptions?: JiraUserPickerFixedOption[]
+  /** Replaces the site-wide user search, e.g. with a project-scoped assignable search. Must be referentially stable. */
+  searchUsers?: (query: string) => Promise<JiraUser[]>
 }): React.JSX.Element {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
@@ -81,7 +84,7 @@ export function JiraUserPicker({
     let cancelled = false
     setLoading(true)
     const timer = setTimeout(() => {
-      void jiraSearchUsers(providerSettings, query, siteId)
+      void (searchUsers ? searchUsers(query) : jiraSearchUsers(providerSettings, query, siteId))
         .then((found) => {
           if (!cancelled) {
             setUsers(found)
@@ -102,7 +105,7 @@ export function JiraUserPicker({
       cancelled = true
       clearTimeout(timer)
     }
-  }, [open, providerSettings, query, siteId])
+  }, [open, providerSettings, query, searchUsers, siteId])
 
   const triggerLabel = useMemo(() => {
     if (selectedUser?.displayName) {
