@@ -7,7 +7,7 @@ import type { EditorRequestFileReloadDetail } from './editor-autosave'
 const mocks = vi.hoisted(() => ({
   toast: Object.assign(vi.fn(), { error: vi.fn() }),
   getState: vi.fn(),
-  quiesce: vi.fn(async (): Promise<void> => {})
+  quiesce: vi.fn(async (_target: unknown, _resume?: Promise<void>): Promise<void> => {})
 }))
 vi.mock('sonner', () => ({ toast: mocks.toast }))
 vi.mock('@/store', () => ({ useAppStore: { getState: mocks.getState } }))
@@ -32,6 +32,7 @@ const file: OpenFile = {
 let requests: EditorRequestFileReloadDetail[] = []
 const listener = (event: Event): void => {
   if (event instanceof CustomEvent) {
+    event.detail.claim()
     requests.push(event.detail)
   }
 }
@@ -67,7 +68,7 @@ describe('manual disk reload transaction', () => {
     const state = makeState()
     mocks.getState.mockReturnValue(state)
     await requestEditorTabDiskReload(file.id)
-    expect(mocks.quiesce).toHaveBeenCalledWith({ fileId: file.id })
+    expect(mocks.quiesce).toHaveBeenCalledWith({ fileId: file.id }, expect.any(Promise))
     expect(state.clearEditorDraft).not.toHaveBeenCalled()
     expect(mocks.toast).not.toHaveBeenCalled()
     expect(beforeApply()).toBe(true)
@@ -136,6 +137,30 @@ describe('manual disk reload transaction', () => {
     finishSave()
     await pending
     expect(requests).toHaveLength(1)
+  })
+
+  it('keeps edits made while an earlier save drains', async () => {
+    const state = makeState()
+    mocks.getState.mockReturnValue(state)
+    let finishSave = (): void => {}
+    mocks.quiesce.mockReturnValueOnce(
+      new Promise<void>((resolve) => {
+        finishSave = resolve
+      })
+    )
+    const pending = requestEditorTabDiskReload(file.id)
+    state.editorDrafts[file.id] = 'typed during pending save'
+    finishSave()
+    await pending
+    expect(beforeApply()).toBe(false)
+    expect(state.clearEditorDraft).not.toHaveBeenCalled()
+  })
+
+  it('releases the autosave hold when no editor panel can read the file', async () => {
+    mocks.getState.mockReturnValue(makeState())
+    window.removeEventListener(ORCA_EDITOR_REQUEST_FILE_RELOAD_EVENT, listener)
+    await requestEditorTabDiskReload(file.id)
+    await expect(mocks.quiesce.mock.calls[0]?.[1]).resolves.toBeUndefined()
   })
 
   it('ignores missing tabs and combined diffs', async () => {

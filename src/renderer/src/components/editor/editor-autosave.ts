@@ -32,6 +32,7 @@ export type EditorPathMutationTarget = {
 export type EditorSaveQuiesceTarget = { fileId: string } | EditorPathMutationTarget
 
 export type EditorSaveQuiesceDetail = EditorSaveQuiesceTarget & {
+  resumeAutoSave?: Promise<void>
   claim: () => void
   resolve: () => void
 }
@@ -60,6 +61,8 @@ export type EditorRequestFileReloadDetail = {
   fileId: string
   beforeApply: () => boolean
   onError: (error: unknown) => void
+  onSettled: () => void
+  claim: () => void
 }
 
 export type EditorRequestCmdSaveDetail = {
@@ -171,13 +174,17 @@ export function getOpenFilesForExternalFileChange(
   })
 }
 
-export async function requestEditorSaveQuiesce(target: EditorSaveQuiesceTarget): Promise<void> {
+export async function requestEditorSaveQuiesce(
+  target: EditorSaveQuiesceTarget,
+  resumeAutoSave?: Promise<void>
+): Promise<void> {
   await new Promise<void>((resolve) => {
     let claimed = false
     window.dispatchEvent(
       new CustomEvent<EditorSaveQuiesceDetail>(ORCA_EDITOR_QUIESCE_FILE_SAVES_EVENT, {
         detail: {
           ...target,
+          resumeAutoSave,
           claim: () => {
             claimed = true
           },
@@ -227,12 +234,34 @@ export function requestEditorFileClose(fileId: string): void {
   )
 }
 
-export function requestEditorFileReload(detail: EditorRequestFileReloadDetail): void {
+export function requestEditorFileReload(
+  detail: Omit<EditorRequestFileReloadDetail, 'claim'>
+): boolean {
+  let claimed = false
+  let readers = 0
+  let dispatching = true
   window.dispatchEvent(
     new CustomEvent<EditorRequestFileReloadDetail>(ORCA_EDITOR_REQUEST_FILE_RELOAD_EVENT, {
-      detail
+      detail: {
+        ...detail,
+        claim: () => {
+          claimed = true
+          readers++
+        },
+        onSettled: () => {
+          readers--
+          if (readers === 0 && !dispatching) {
+            detail.onSettled()
+          }
+        }
+      }
     })
   )
+  dispatching = false
+  if (claimed && readers === 0) {
+    detail.onSettled()
+  }
+  return claimed
 }
 
 // CONTRACT: this event fires even when some tabs of the path are dirty —

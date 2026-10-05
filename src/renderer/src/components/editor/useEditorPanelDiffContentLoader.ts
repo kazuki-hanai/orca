@@ -184,6 +184,7 @@ export function useEditorPanelDiffContentLoader({
           }
         }))
       } finally {
+        options?.onSettled?.()
         if (outstandingDiffReadsRef.current[file.id] === generation) {
           delete outstandingDiffReadsRef.current[file.id]
         }

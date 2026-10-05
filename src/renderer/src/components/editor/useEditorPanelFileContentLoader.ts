@@ -213,9 +213,6 @@ export function useEditorPanelFileContentLoader({
             'CSV grew too large for editing. Your draft has been kept; reopen the file to preview it.'
           )
         }
-        if (result.csvPreview || restoredOpenFile?.csvPreviewOnly) {
-          useAppStore.getState().setCsvPreviewOnly(id, Boolean(result.csvPreview))
-        }
         if (options?.beforeApply) {
           if (result.isBinary || result.loadError) {
             options.onError?.(new Error(result.loadError ?? 'The file is no longer a text file.'))
@@ -224,6 +221,9 @@ export function useEditorPanelFileContentLoader({
           if (!options.beforeApply()) {
             return
           }
+        }
+        if (result.csvPreview || restoredOpenFile?.csvPreviewOnly) {
+          useAppStore.getState().setCsvPreviewOnly(id, Boolean(result.csvPreview))
         }
         delete fileLoadRetryAttemptsRef.current[id]
         setFileContents((prev) => ({ ...prev, [id]: result }))
@@ -265,6 +265,7 @@ export function useEditorPanelFileContentLoader({
           }
         }))
       } finally {
+        options?.onSettled?.()
         if (outstandingFileReadsRef.current[id] === generation) {
           delete outstandingFileReadsRef.current[id]
         }

@@ -20,6 +20,7 @@ export type EditorPanelContentLoadOptions = {
   externalEventGeneration?: number
   beforeApply?: () => boolean
   onError?: (error: unknown) => void
+  onSettled?: () => void
 }
 
 type UseEditorPanelExternalContentEventsParams = {
@@ -151,6 +152,7 @@ export function useEditorPanelExternalContentEvents({
   ])
 
   useEffect(() => {
+    const pending = new Set<() => void>()
     const handler = (event: Event): void => {
       if (!(event instanceof CustomEvent)) {
         return
@@ -163,21 +165,44 @@ export function useEditorPanelExternalContentEvents({
       if (!file) {
         return
       }
+      detail.claim()
+      const settle = (): void => {
+        if (pending.delete(settle)) {
+          detail.onSettled()
+        }
+      }
+      pending.add(settle)
       const options: EditorPanelContentLoadOptions = {
         force: true,
+        onSettled: settle,
         externalEventGeneration: getExternalEventGeneration(event),
-        beforeApply: detail.beforeApply,
+        beforeApply: () => {
+          if (!pending.has(settle)) {
+            return false
+          }
+          if (!detail.beforeApply()) {
+            return false
+          }
+          if (file.mode !== 'diff') {
+            invalidateDiffContent([file.id])
+          }
+          return true
+        },
         onError: detail.onError
       }
       if (file.mode === 'diff') {
         void loadDiffContent(file, options)
       } else {
         void loadFileContent(file.filePath, file.id, file.worktreeId, file.relativePath, options)
-        invalidateDiffContent([file.id])
       }
     }
     window.addEventListener(ORCA_EDITOR_REQUEST_FILE_RELOAD_EVENT, handler)
-    return () => window.removeEventListener(ORCA_EDITOR_REQUEST_FILE_RELOAD_EVENT, handler)
+    return () => {
+      window.removeEventListener(ORCA_EDITOR_REQUEST_FILE_RELOAD_EVENT, handler)
+      for (const settle of pending) {
+        settle()
+      }
+    }
   }, [
     activeContentFileIdRef,
     editorViewModeRef,

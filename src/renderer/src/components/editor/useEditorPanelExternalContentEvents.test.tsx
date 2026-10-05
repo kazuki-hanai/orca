@@ -94,7 +94,13 @@ function dispatchReloadRequest(fileId: string): void {
   act(() => {
     window.dispatchEvent(
       new CustomEvent(ORCA_EDITOR_REQUEST_FILE_RELOAD_EVENT, {
-        detail: { fileId, beforeApply: () => true, onError: vi.fn() }
+        detail: {
+          fileId,
+          beforeApply: () => true,
+          onError: vi.fn(),
+          onSettled: vi.fn(),
+          claim: vi.fn()
+        }
       })
     )
   })
@@ -267,6 +273,8 @@ describe('useEditorPanelExternalContentEvents', () => {
 
       expect(calls.loadFile).toHaveBeenCalledOnce()
       expect(calls.loadFile.mock.calls[0]?.[4]?.force).toBe(true)
+      expect(calls.invalidateDiff).not.toHaveBeenCalled()
+      expect(calls.loadFile.mock.calls[0]?.[4]?.beforeApply()).toBe(true)
       expect(calls.invalidateDiff).toHaveBeenCalledExactlyOnceWith([file.id])
     })
 
@@ -318,6 +326,32 @@ describe('useEditorPanelExternalContentEvents', () => {
       expect(calls.loadFile).not.toHaveBeenCalled()
       expect(calls.loadDiff).toHaveBeenCalledOnce()
       expect(calls.loadDiff.mock.calls[0]?.[1]?.force).toBe(true)
+    })
+
+    it('settles pending manual reads on unmount and rejects their late result', () => {
+      const file = makeFile('reloaded')
+      const calls = makeCalls()
+      const beforeApply = vi.fn(() => true)
+      const onSettled = vi.fn()
+      act(() =>
+        root.render(
+          <ExternalContentProbe activeFileId={file.id} calls={calls} isVisible openFiles={[file]} />
+        )
+      )
+      act(() =>
+        window.dispatchEvent(
+          new CustomEvent(ORCA_EDITOR_REQUEST_FILE_RELOAD_EVENT, {
+            detail: { fileId: file.id, beforeApply, onSettled, claim: vi.fn(), onError: vi.fn() }
+          })
+        )
+      )
+      const options = calls.loadFile.mock.calls[0]?.[4]
+      act(() => root.render(null))
+      expect(onSettled).toHaveBeenCalledOnce()
+      expect(options?.beforeApply()).toBe(false)
+      expect(beforeApply).not.toHaveBeenCalled()
+      options?.onSettled()
+      expect(onSettled).toHaveBeenCalledOnce()
     })
 
     it('ignores requests for files this panel does not hold', () => {

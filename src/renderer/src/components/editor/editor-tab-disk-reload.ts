@@ -15,7 +15,6 @@ export async function requestEditorTabDiskReload(fileId: string): Promise<void> 
   if (!initial || !isExternalReloadableEditorTab(initial)) {
     return
   }
-  await requestEditorSaveQuiesce({ fileId })
   flushPendingEditorChange(fileId)
   const state = useAppStore.getState()
   const file = state.openFiles.find((file) => file.id === fileId)
@@ -23,8 +22,14 @@ export async function requestEditorTabDiskReload(fileId: string): Promise<void> 
     return
   }
   const draft = state.editorDrafts[fileId]
+  let finish = (): void => {}
+  const resumeAutoSave = new Promise<void>((resolve) => {
+    finish = resolve
+  })
+  await requestEditorSaveQuiesce({ fileId }, resumeAutoSave)
   let applied = false
-  requestEditorFileReload({
+  const claimed = requestEditorFileReload({
+    onSettled: finish,
     fileId,
     beforeApply: () => {
       if (applied) {
@@ -51,4 +56,7 @@ export async function requestEditorTabDiskReload(fileId: string): Promise<void> 
       })
     }
   })
+  if (!claimed) {
+    finish()
+  }
 }
