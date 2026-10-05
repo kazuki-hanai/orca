@@ -3467,6 +3467,9 @@
           }
         }
       },
+      "editor": {
+        "reloadFailed": "Could not reload from disk"
+      },
       "tab": {
         "group": {
           "TabGroupPanel": {
@@ -18522,9 +18525,6 @@
     },
     "agentChildRow": {
       "ended": "Ended"
-    },
-    "editor": {
-      "reloadFailed": "Could not reload from disk"
     }
   },
   "dashboardPopout": {
