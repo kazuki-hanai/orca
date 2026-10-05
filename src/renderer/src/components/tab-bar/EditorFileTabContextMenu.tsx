@@ -207,10 +207,9 @@ export function EditorFileTabContextMenu({
         {canReloadFromDisk ? (
           <DropdownMenuItem
             onSelect={() => {
-              // Why activate first: a background tab's reload lands lazily on
-              // reveal — activating makes the fresh content visible immediately.
+              // Reveal the requested tab while its disk read is pending.
               onActivate()
-              requestEditorTabDiskReload(file.id)
+              void requestEditorTabDiskReload(file.id)
             }}
           >
             <RefreshCw className="size-3.5" />

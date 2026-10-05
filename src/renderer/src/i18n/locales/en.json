@@ -18522,6 +18522,9 @@
     },
     "agentChildRow": {
       "ended": "Ended"
+    },
+    "editor": {
+      "reloadFailed": "Could not reload from disk"
     }
   },
   "dashboardPopout": {

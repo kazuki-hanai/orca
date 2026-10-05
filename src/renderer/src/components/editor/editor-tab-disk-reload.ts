@@ -1,17 +1,54 @@
+import { toast } from 'sonner'
 import { useAppStore } from '@/store'
-import { isExternalReloadableEditorTab, requestEditorFileReload } from './editor-autosave'
+import { translate } from '@/i18n/i18n'
+import {
+  isExternalReloadableEditorTab,
+  requestEditorFileReload,
+  requestEditorSaveQuiesce
+} from './editor-autosave'
+import { flushPendingEditorChange } from './editor-pending-flush'
 import { reloadTabContentFromDisk } from './ExternalFileChangeBanner'
 
-/** User-requested "Reload from Disk" (editor tab context menu). Always routes
- *  through reloadTabContentFromDisk — isDirty lags editorDrafts (debounced), so
- *  gating on it could leave a not-yet-dirty draft shadowing the reloaded
- *  content. For clean tabs its mutations are no-ops and the Undo toast fires
- *  only when a draft was actually discarded; the refetch itself is delegated
- *  to the owning EditorPanel via the reload-request event. */
-export function requestEditorTabDiskReload(fileId: string): void {
-  const file = useAppStore.getState().openFiles.find((openFile) => openFile.id === fileId)
+// Keep the draft until a successful read, and let newer edits or saves cancel the discard.
+export async function requestEditorTabDiskReload(fileId: string): Promise<void> {
+  const initial = useAppStore.getState().openFiles.find((file) => file.id === fileId)
+  if (!initial || !isExternalReloadableEditorTab(initial)) {
+    return
+  }
+  await requestEditorSaveQuiesce({ fileId })
+  flushPendingEditorChange(fileId)
+  const state = useAppStore.getState()
+  const file = state.openFiles.find((file) => file.id === fileId)
   if (!file || !isExternalReloadableEditorTab(file)) {
     return
   }
-  reloadTabContentFromDisk(file, (target) => requestEditorFileReload(target.id))
+  const draft = state.editorDrafts[fileId]
+  let applied = false
+  requestEditorFileReload({
+    fileId,
+    beforeApply: () => {
+      if (applied) {
+        return true
+      }
+      flushPendingEditorChange(fileId)
+      const current = useAppStore.getState()
+      const live = current.openFiles.find((file) => file.id === fileId)
+      if (
+        !live ||
+        live.filePath !== file.filePath ||
+        live.lastKnownDiskSignature !== file.lastKnownDiskSignature ||
+        current.editorDrafts[fileId] !== draft
+      ) {
+        return false
+      }
+      applied = true
+      reloadTabContentFromDisk(live, () => {})
+      return true
+    },
+    onError: (error) => {
+      toast.error(translate('components.editor.reloadFailed', 'Could not reload from disk'), {
+        description: error instanceof Error ? error.message : String(error)
+      })
+    }
+  })
 }

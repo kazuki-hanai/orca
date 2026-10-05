@@ -58,6 +58,8 @@ export type EditorRequestFileCloseDetail = {
 
 export type EditorRequestFileReloadDetail = {
   fileId: string
+  beforeApply: () => boolean
+  onError: (error: unknown) => void
 }
 
 export type EditorRequestCmdSaveDetail = {
@@ -225,13 +227,10 @@ export function requestEditorFileClose(fileId: string): void {
   )
 }
 
-// CONTRACT: dispatched only after any unsaved draft has been discarded (see
-// requestEditorTabDiskReload) — consumers reload without a dirty skip, because
-// their openFiles snapshot can still say dirty before that store write renders.
-export function requestEditorFileReload(fileId: string): void {
+export function requestEditorFileReload(detail: EditorRequestFileReloadDetail): void {
   window.dispatchEvent(
     new CustomEvent<EditorRequestFileReloadDetail>(ORCA_EDITOR_REQUEST_FILE_RELOAD_EVENT, {
-      detail: { fileId }
+      detail
     })
   )
 }

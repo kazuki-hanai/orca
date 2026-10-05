@@ -93,7 +93,9 @@ function dispatchExternalChange(relativePath: string): void {
 function dispatchReloadRequest(fileId: string): void {
   act(() => {
     window.dispatchEvent(
-      new CustomEvent(ORCA_EDITOR_REQUEST_FILE_RELOAD_EVENT, { detail: { fileId } })
+      new CustomEvent(ORCA_EDITOR_REQUEST_FILE_RELOAD_EVENT, {
+        detail: { fileId, beforeApply: () => true, onError: vi.fn() }
+      })
     )
   })
 }
@@ -268,7 +270,7 @@ describe('useEditorPanelExternalContentEvents', () => {
       expect(calls.invalidateDiff).toHaveBeenCalledExactlyOnceWith([file.id])
     })
 
-    it('invalidates a hidden panel without reloading until reveal', () => {
+    it('loads a requested hidden tab without discarding its draft before the read', () => {
       const file = makeFile('reloaded')
       const calls = makeCalls()
 
@@ -284,11 +286,11 @@ describe('useEditorPanelExternalContentEvents', () => {
       })
       dispatchReloadRequest(file.id)
 
-      expect(calls.loadFile).not.toHaveBeenCalled()
-      expect(calls.invalidate).toHaveBeenCalledExactlyOnceWith([file.id])
+      expect(calls.loadFile).toHaveBeenCalledOnce()
+      expect(calls.invalidate).not.toHaveBeenCalled()
     })
 
-    it('reloads a still-dirty snapshot — the dispatcher already discarded the draft', () => {
+    it('reads a still-dirty tab so the loader can defer discarding its draft', () => {
       const file = makeFile('reloaded', { isDirty: true })
       const calls = makeCalls()
 

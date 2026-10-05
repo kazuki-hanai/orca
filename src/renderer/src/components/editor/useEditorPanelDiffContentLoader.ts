@@ -155,9 +155,22 @@ export function useEditorPanelDiffContentLoader({
         if (diffReadGenerationRef.current[file.id] !== generation) {
           return
         }
+        if (options?.beforeApply) {
+          if (result.kind !== 'text' || result.modifiedIsBinary) {
+            options.onError?.(new Error('The file is no longer a text file.'))
+            return
+          }
+          if (!options.beforeApply()) {
+            return
+          }
+        }
         setDiffContents((prev) => ({ ...prev, [file.id]: result }))
       } catch (err) {
         if (diffReadGenerationRef.current[file.id] !== generation) {
+          return
+        }
+        if (options?.onError) {
+          options.onError(err)
           return
         }
         setDiffContents((prev) => ({

@@ -18,6 +18,8 @@ type EditorViewModeByFile = ReturnType<typeof useAppStore.getState>['editorViewM
 export type EditorPanelContentLoadOptions = {
   force?: boolean
   externalEventGeneration?: number
+  beforeApply?: () => boolean
+  onError?: (error: unknown) => void
 }
 
 type UseEditorPanelExternalContentEventsParams = {
@@ -57,8 +59,6 @@ type OwnedFileReloadDeps = Pick<
   'editorViewModeRef' | 'loadDiffContent' | 'loadFileContent'
 >
 
-// Shared by the external-change and explicit reload-request handlers so the
-// per-mode refetch (file body vs diff body, Changes-view diff) cannot drift.
 function forceReloadOwnedFile(
   file: OpenFile,
   eventGeneration: number,
@@ -152,7 +152,10 @@ export function useEditorPanelExternalContentEvents({
 
   useEffect(() => {
     const handler = (event: Event): void => {
-      const detail = (event as CustomEvent<EditorRequestFileReloadDetail>).detail
+      if (!(event instanceof CustomEvent)) {
+        return
+      }
+      const detail: EditorRequestFileReloadDetail = event.detail
       if (!detail) {
         return
       }
@@ -160,23 +163,21 @@ export function useEditorPanelExternalContentEvents({
       if (!file) {
         return
       }
-      // Why no dirty skip: per the requestEditorFileReload contract the draft is
-      // already discarded — this snapshot can still say dirty because that store
-      // write hasn't rendered yet, and skipping would drop an explicit reload.
-      if (!isVisibleRef.current || file.id !== activeContentFileIdRef.current) {
-        invalidateContent([file.id])
-        return
+      const options: EditorPanelContentLoadOptions = {
+        force: true,
+        externalEventGeneration: getExternalEventGeneration(event),
+        beforeApply: detail.beforeApply,
+        onError: detail.onError
       }
-      forceReloadOwnedFile(
-        file,
-        getExternalEventGeneration(event),
-        { editorViewModeRef, loadDiffContent, loadFileContent },
-        (fileId) => invalidateDiffContent([fileId])
-      )
+      if (file.mode === 'diff') {
+        void loadDiffContent(file, options)
+      } else {
+        void loadFileContent(file.filePath, file.id, file.worktreeId, file.relativePath, options)
+        invalidateDiffContent([file.id])
+      }
     }
-    window.addEventListener(ORCA_EDITOR_REQUEST_FILE_RELOAD_EVENT, handler as EventListener)
-    return () =>
-      window.removeEventListener(ORCA_EDITOR_REQUEST_FILE_RELOAD_EVENT, handler as EventListener)
+    window.addEventListener(ORCA_EDITOR_REQUEST_FILE_RELOAD_EVENT, handler)
+    return () => window.removeEventListener(ORCA_EDITOR_REQUEST_FILE_RELOAD_EVENT, handler)
   }, [
     activeContentFileIdRef,
     editorViewModeRef,

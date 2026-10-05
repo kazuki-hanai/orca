@@ -1,129 +1,150 @@
 // @vitest-environment happy-dom
-
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { OpenFile } from '@/store/slices/editor'
+import type * as EditorAutosave from './editor-autosave'
+import type { EditorRequestFileReloadDetail } from './editor-autosave'
 
-const toastMock = vi.hoisted(() => vi.fn())
-vi.mock('sonner', () => ({ toast: toastMock }))
-vi.mock('@/store', () => ({
-  useAppStore: {
-    getState: vi.fn()
-  }
+const mocks = vi.hoisted(() => ({
+  toast: Object.assign(vi.fn(), { error: vi.fn() }),
+  getState: vi.fn(),
+  quiesce: vi.fn(async (): Promise<void> => {})
 }))
-vi.mock('@/runtime/runtime-file-client', () => ({
-  readRuntimeFileContent: vi.fn()
+vi.mock('sonner', () => ({ toast: mocks.toast }))
+vi.mock('@/store', () => ({ useAppStore: { getState: mocks.getState } }))
+vi.mock('./editor-autosave', async (importOriginal) => ({
+  ...(await importOriginal<typeof EditorAutosave>()),
+  requestEditorSaveQuiesce: mocks.quiesce
 }))
-vi.mock('@/runtime/runtime-rpc-client', () => ({
-  settingsForRuntimeOwner: () => null
-}))
-vi.mock('@/lib/connection-context', () => ({
-  getConnectionIdForFile: () => undefined
-}))
-
-import { useAppStore } from '@/store'
-import {
-  ORCA_EDITOR_REQUEST_FILE_RELOAD_EVENT,
-  type EditorRequestFileReloadDetail
-} from './editor-autosave'
+import { ORCA_EDITOR_REQUEST_FILE_RELOAD_EVENT } from './editor-autosave'
+import { registerPendingEditorFlush } from './editor-pending-flush'
 import { requestEditorTabDiskReload } from './editor-tab-disk-reload'
 
-function makeFile(overrides: Partial<OpenFile> = {}): OpenFile {
-  return {
-    id: 'file-1',
-    filePath: '/repo/notes.md',
-    relativePath: 'notes.md',
-    worktreeId: 'wt-1',
-    language: 'markdown',
-    mode: 'edit',
-    isDirty: false,
-    ...overrides
-  } as OpenFile
+const file: OpenFile = {
+  id: 'file-1',
+  filePath: '/repo/notes.md',
+  relativePath: 'notes.md',
+  worktreeId: 'wt-1',
+  language: 'markdown',
+  mode: 'edit',
+  isDirty: true
 }
 
-describe('requestEditorTabDiskReload', () => {
-  const clearEditorDraft = vi.fn()
-  const markFileDirty = vi.fn()
-  const setExternalMutation = vi.fn()
-  const dispatchedFileIds: string[] = []
-  const listener = (event: Event): void => {
-    dispatchedFileIds.push((event as CustomEvent<EditorRequestFileReloadDetail>).detail.fileId)
+let requests: EditorRequestFileReloadDetail[] = []
+const listener = (event: Event): void => {
+  if (event instanceof CustomEvent) {
+    requests.push(event.detail)
   }
-
-  function mockStore(openFiles: OpenFile[], editorDrafts: Record<string, string> = {}): void {
-    vi.mocked(useAppStore.getState).mockReturnValue({
-      clearEditorDraft,
-      markFileDirty,
-      setExternalMutation,
-      editorDrafts,
-      openFiles
-    } as never)
+}
+function makeState(
+  openFiles = [file],
+  editorDrafts: Record<string, string> = { 'file-1': 'draft' }
+) {
+  return {
+    openFiles,
+    editorDrafts,
+    clearEditorDraft: vi.fn(),
+    markFileDirty: vi.fn(),
+    setExternalMutation: vi.fn()
   }
+}
+function beforeApply(): boolean {
+  const request = requests[0]
+  if (!request) {
+    throw new Error('No reload requested')
+  }
+  return request.beforeApply()
+}
 
-  beforeEach(() => {
-    vi.clearAllMocks()
-    dispatchedFileIds.length = 0
-    window.addEventListener(ORCA_EDITOR_REQUEST_FILE_RELOAD_EVENT, listener)
+beforeEach(() => {
+  vi.clearAllMocks()
+  requests = []
+  window.addEventListener(ORCA_EDITOR_REQUEST_FILE_RELOAD_EVENT, listener)
+})
+afterEach(() => window.removeEventListener(ORCA_EDITOR_REQUEST_FILE_RELOAD_EVENT, listener))
+
+describe('manual disk reload transaction', () => {
+  it('retains dirty content until the loader has successfully read disk', async () => {
+    const state = makeState()
+    mocks.getState.mockReturnValue(state)
+    await requestEditorTabDiskReload(file.id)
+    expect(mocks.quiesce).toHaveBeenCalledWith({ fileId: file.id })
+    expect(state.clearEditorDraft).not.toHaveBeenCalled()
+    expect(mocks.toast).not.toHaveBeenCalled()
+    expect(beforeApply()).toBe(true)
+    expect(state.clearEditorDraft).toHaveBeenCalledWith(file.id)
+    expect(mocks.toast).toHaveBeenCalledOnce()
+    expect(beforeApply()).toBe(true)
+    expect(mocks.toast).toHaveBeenCalledOnce()
   })
 
-  afterEach(() => {
-    window.removeEventListener(ORCA_EDITOR_REQUEST_FILE_RELOAD_EVENT, listener)
+  it('keeps the draft and conflict after a failed remote read', async () => {
+    const state = makeState()
+    mocks.getState.mockReturnValue(state)
+    await requestEditorTabDiskReload(file.id)
+    requests[0]?.onError(new Error('Connection dropped'))
+    expect(state.clearEditorDraft).not.toHaveBeenCalled()
+    expect(state.markFileDirty).not.toHaveBeenCalled()
+    expect(state.setExternalMutation).not.toHaveBeenCalled()
+    expect(mocks.toast.error).toHaveBeenCalledWith('Could not reload from disk', {
+      description: 'Connection dropped'
+    })
   })
 
-  it('dispatches a reload request for a clean tab without an undo toast', () => {
-    mockStore([makeFile()])
-
-    requestEditorTabDiskReload('file-1')
-
-    expect(dispatchedFileIds).toEqual(['file-1'])
-    expect(toastMock).not.toHaveBeenCalled()
-  })
-
-  it('discards a not-yet-dirty draft (isDirty lags behind the debounced draft sync)', () => {
-    mockStore([makeFile()], { 'file-1': 'draft before isDirty flushes' })
-
-    requestEditorTabDiskReload('file-1')
-
-    expect(dispatchedFileIds).toEqual(['file-1'])
-    expect(clearEditorDraft).toHaveBeenCalledWith('file-1')
-    expect(toastMock).toHaveBeenCalledTimes(1)
-  })
-
-  it('discards a dirty tab draft (with the undo toast) before dispatching', () => {
-    const order: string[] = []
-    clearEditorDraft.mockImplementation(() => order.push('clearEditorDraft'))
-    mockStore([makeFile({ id: 'dirty-file', isDirty: true })], { 'dirty-file': 'unsaved text' })
-    const trackDispatch = (): void => {
-      order.push('dispatch')
+  it.each(['new edit', 'closed tab', 'saved file'])(
+    'does not overwrite a %s during the read',
+    async (change) => {
+      const state = makeState()
+      mocks.getState.mockReturnValue(state)
+      await requestEditorTabDiskReload(file.id)
+      if (change === 'new edit') {
+        state.editorDrafts[file.id] = 'newer draft'
+      }
+      if (change === 'closed tab') {
+        state.openFiles = []
+      }
+      if (change === 'saved file') {
+        state.openFiles = [{ ...file, lastKnownDiskSignature: 'saved' }]
+      }
+      expect(beforeApply()).toBe(false)
+      expect(state.clearEditorDraft).not.toHaveBeenCalled()
     }
-    window.addEventListener(ORCA_EDITOR_REQUEST_FILE_RELOAD_EVENT, trackDispatch)
+  )
 
-    requestEditorTabDiskReload('dirty-file')
-    window.removeEventListener(ORCA_EDITOR_REQUEST_FILE_RELOAD_EVENT, trackDispatch)
-
-    expect(dispatchedFileIds).toEqual(['dirty-file'])
-    expect(clearEditorDraft).toHaveBeenCalledWith('dirty-file')
-    expect(markFileDirty).toHaveBeenCalledWith('dirty-file', false)
-    expect(setExternalMutation).toHaveBeenCalledWith('dirty-file', null)
-    expect(toastMock).toHaveBeenCalledTimes(1)
-    // Why: the draft shadows loaded content, so the discard must land before
-    // the owning panel refetches or the stale unsaved text stays visible.
-    expect(order).toEqual(['clearEditorDraft', 'dispatch'])
+  it('flushes debounced markdown edits before checking for newer content', async () => {
+    const state = makeState()
+    mocks.getState.mockReturnValue(state)
+    await requestEditorTabDiskReload(file.id)
+    const unregister = registerPendingEditorFlush(file.id, () => {
+      state.editorDrafts[file.id] = 'new markdown draft'
+    })
+    expect(beforeApply()).toBe(false)
+    unregister()
+    expect(state.clearEditorDraft).not.toHaveBeenCalled()
   })
 
-  it('ignores tabs that have no single reloadable disk source', () => {
-    mockStore([makeFile({ mode: 'diff', diffSource: 'combined-uncommitted' })])
-
-    requestEditorTabDiskReload('file-1')
-
-    expect(dispatchedFileIds).toEqual([])
-    expect(clearEditorDraft).not.toHaveBeenCalled()
+  it('waits for a pending save before reading', async () => {
+    const state = makeState()
+    mocks.getState.mockReturnValue(state)
+    let finishSave = (): void => {}
+    mocks.quiesce.mockReturnValueOnce(
+      new Promise<void>((resolve) => {
+        finishSave = resolve
+      })
+    )
+    const pending = requestEditorTabDiskReload(file.id)
+    expect(requests).toEqual([])
+    finishSave()
+    await pending
+    expect(requests).toHaveLength(1)
   })
 
-  it('ignores unknown file ids', () => {
-    mockStore([makeFile()])
-
-    requestEditorTabDiskReload('missing')
-
-    expect(dispatchedFileIds).toEqual([])
+  it('ignores missing tabs and combined diffs', async () => {
+    mocks.getState.mockReturnValue(
+      makeState([{ ...file, mode: 'diff', diffSource: 'combined-uncommitted' }])
+    )
+    await requestEditorTabDiskReload(file.id)
+    await requestEditorTabDiskReload('missing')
+    expect(requests).toEqual([])
+    expect(mocks.quiesce).not.toHaveBeenCalled()
   })
 })
