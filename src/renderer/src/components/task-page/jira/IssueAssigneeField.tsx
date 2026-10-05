@@ -15,6 +15,7 @@ export function TaskPageJiraIssueAssigneeField({
     | 'settings'
     | 'jiraTaskSourceContext'
     | 'jiraStatus'
+    | 'jiraStatusCurrent'
     | 'jiraCreateFields'
     | 'newJiraIssueTargetProject'
     | 'newJiraIssueAssignee'
@@ -46,7 +47,9 @@ export function TaskPageJiraIssueAssigneeField({
   if (!hasJiraAssigneeCreateField(jiraCreateFields)) {
     return null
   }
-  const selfUser = getJiraSelfUser(jiraStatus, projectSiteId ?? null)
+  const selfUser = model.jiraStatusCurrent
+    ? getJiraSelfUser(jiraStatus, projectSiteId ?? null)
+    : null
   const assigneeLabel = translate('components.jiraIssueAssigneeField.label', 'Assignee')
   const automaticLabel = translate('components.jiraIssueAssigneeField.automatic', 'Automatic')
   const fixedOptions: JiraUserPickerFixedOption[] = [
