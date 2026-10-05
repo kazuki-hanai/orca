@@ -12,6 +12,7 @@ import type { PrebuiltRelayPlan } from './ssh-relay-host-node-addons'
 import {
   nextRelayRuntimeStep,
   relayRuntimeLadder,
+  relayRuntimeStorePins,
   type RelayRuntimeStep
 } from './ssh-relay-runtime-ladder'
 import {
@@ -22,7 +23,6 @@ import {
 import { planRelayRuntimeStep } from './ssh-relay-runtime-step-plan'
 import { getSshTargetRegistryStore } from './ssh-target-registry'
 import { gcRemoteNodeRuntimeStore } from './remote-node-runtime-store-gc'
-import { NODE_RUNTIME_ASSETS } from '../../shared/node-runtime-pin'
 import type { SshConnection } from './ssh-connection'
 import { RELAY_REMOTE_DIR, type RelayPlatform } from './relay-protocol'
 import type { MultiplexerTransport } from './ssh-channel-multiplexer'
@@ -118,6 +118,12 @@ import {
 } from './ssh-remote-platform'
 import { detectRemoteHostPlatform } from './ssh-remote-platform-detection'
 import { powerShellCommand, powerShellLiteral, powerShellNativeArg } from './ssh-remote-powershell'
+import {
+  classifyWindowsRelayLaunchError,
+  WINDOWS_RELAY_LAUNCH_LOG_PREFIX,
+  windowsRelayLaunchCommand
+} from './ssh-relay-windows-launch-command'
+import { parseRelayWindowsLaunchReport } from '../../shared/relay-windows-breakaway-launch'
 import { relaySocketNameForInstanceId } from './ssh-relay-instance-id'
 import { resolveRelayEndpointBeforeRelaunch } from './ssh-relay-endpoint-takeover'
 import {
@@ -450,7 +456,7 @@ async function deployAndLaunchRelayInner(
         console.warn(
           `[ssh-relay] Relay runtime rung ${step} unavailable (${err.reason}): ${err.detail}`
         )
-        run.refused(step, err.reason)
+        run.refused(step, err.reason, err.remembered)
         step = nextRelayRuntimeStep(ladder, step, err.reason, err.remembered)
         run.enter(step)
         continue
@@ -902,9 +908,10 @@ async function deployAndLaunchRelayOnRuntime({
         )
         // Same ordering reason as ripgrep: the version pass drops the refs that held old runtimes.
         .then(() =>
+          // Why every compat pin too: a rung A connect must not collect the rung B runtime.
           prebuilt?.kind === 'pinned-node'
             ? gcRemoteNodeRuntimeStore(conn, hostPlatform, remoteHome, {
-                currentPins: [NODE_RUNTIME_ASSETS[prebuilt.target].executableSha256]
+                currentPins: relayRuntimeStorePins(prebuilt.target)
               })
             : undefined
         )
@@ -2398,23 +2405,26 @@ async function launchWindowsRelay(
   const logFile = joinRemotePath(hostPlatform, launchOpts.remoteDir, 'relay.log')
   const errFile = joinRemotePath(hostPlatform, launchOpts.remoteDir, 'relay.err.log')
   // Why no credential write: see launchRelay — the daemon publishes after it owns the pipe.
-  await execHostCommand(
+  const launchOutput = await execHostCommand(
     conn,
     hostPlatform,
-    windowsRelayLaunchCommand(
-      hostPlatform,
-      launchOpts.nodePath,
-      launchOpts.remoteDir,
-      launchOpts.sockPath,
-      launchOpts.endpointDir,
-      launchOpts.graceTime,
+    windowsRelayLaunchCommand(hostPlatform, {
+      nodePath: launchOpts.nodePath,
+      remoteDir: launchOpts.remoteDir,
+      sockPath: launchOpts.sockPath,
+      endpointDir: launchOpts.endpointDir,
+      graceTime: launchOpts.graceTime,
       logFile,
       errFile,
-      launchOpts.credentialFile,
-      launchOpts.ripgrepPath
-    ),
+      credentialFile: launchOpts.credentialFile,
+      ripgrepPath: launchOpts.ripgrepPath
+    }),
     { signal }
-  )
+  ).catch((error: unknown) => {
+    throw classifyWindowsRelayLaunchError(error)
+  })
+  const launchReport = parseRelayWindowsLaunchReport(launchOutput)
+  console.log(`${WINDOWS_RELAY_LAUNCH_LOG_PREFIX}${JSON.stringify(launchReport)}`)
 
   const POLL_INTERVAL_MS = 200
   const POLL_TIMEOUT_MS = 10_000
@@ -2491,52 +2501,6 @@ function windowsRelayConnectCommand(
     nodePath,
     remoteDir,
     `& ${powerShellLiteral(nodePath)} relay.js --connect --sock-path ${powerShellLiteral(sockPath)} --credential-file ${powerShellLiteral(credentialFile)}`
-  )
-}
-
-function windowsRelayLaunchCommand(
-  hostPlatform: RemoteHostPlatform,
-  nodePath: string,
-  remoteDir: string,
-  sockPath: string,
-  endpointDir: string,
-  graceTime: number,
-  logFile: string,
-  errFile: string,
-  credentialFile: string,
-  ripgrepPath?: string
-): string {
-  const relayScript = joinRemotePath(hostPlatform, remoteDir, 'relay.js')
-  // Why: Windows sshd kills the exec channel's process tree on close; WMI re-parents the detached relay to survive.
-  const quoted = (value: string): string => `"${value.replace(/"/g, '\\"')}"`
-  const relayCommandLine = [
-    quoted(nodePath),
-    quoted(relayScript),
-    '--detached',
-    '--grace-time',
-    String(graceTime),
-    '--sock-path',
-    quoted(sockPath),
-    '--credential-file',
-    quoted(credentialFile),
-    '--endpoint-dir',
-    quoted(endpointDir),
-    // Why: --log-file owns rotation; shell redirects still capture pre-JS boot/crash output.
-    '--log-file',
-    quoted(logFile),
-    ...(ripgrepPath ? ['--ripgrep-path', quoted(ripgrepPath)] : []),
-    `1>${quoted(logFile)}`,
-    `2>${quoted(errFile)}`
-  ].join(' ')
-  const wmiCommandLine = `cmd.exe /d /s /c "${relayCommandLine}"`
-  return commandWithNodePath(
-    hostPlatform,
-    nodePath,
-    remoteDir,
-    [
-      `$result = Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{ CommandLine = ${powerShellLiteral(wmiCommandLine)}; CurrentDirectory = ${powerShellLiteral(remoteDir)} }`,
-      `if ($result.ReturnValue -ne 0) { throw "Win32_Process.Create failed with $($result.ReturnValue)" }`
-    ].join('; ')
   )
 }
 
