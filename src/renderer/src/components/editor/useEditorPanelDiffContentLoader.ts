@@ -52,6 +52,7 @@ export function useEditorPanelDiffContentLoader({
   return useCallback(
     async (file: OpenFile | null, options?: EditorPanelContentLoadOptions): Promise<void> => {
       if (!file || (file.mode === 'edit' && !canUseChangesModeForFile(file))) {
+        options?.onSettled?.()
         return
       }
       const generation = diffReadGenerationCounterRef.current + 1
