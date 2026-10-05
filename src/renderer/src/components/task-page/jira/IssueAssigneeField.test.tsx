@@ -25,6 +25,7 @@ it('drops old provider candidates before another host with identical project IDs
   const { rerender } = render(<TaskPageJiraIssueAssigneeField model={model} />)
   fireEvent.click(screen.getByRole('button', { name: 'Assignee' }))
   await screen.findByRole('button', { name: 'Local user' })
+  expect(search).toHaveBeenCalledWith(null, 'PRJ', '', 'same-site')
 
   search.mockReturnValueOnce(new Promise(() => {}))
   rerender(

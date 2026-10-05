@@ -34,14 +34,14 @@ export function TaskPageJiraIssueAssigneeField({
     newJiraIssueSubmitting
   } = model
   const providerSettings = jiraTaskSourceContext ?? settings
-  const projectId = newJiraIssueTargetProject?.id
+  const projectKey = newJiraIssueTargetProject?.key
   const projectSiteId = newJiraIssueTargetProject?.siteId
   const searchAssignableUsers = useCallback(
     (query: string) =>
-      projectId
-        ? jiraListAssignableUsersForProject(providerSettings, projectId, query, projectSiteId)
+      projectKey
+        ? jiraListAssignableUsersForProject(providerSettings, projectKey, query, projectSiteId)
         : Promise.resolve([]),
-    [projectId, projectSiteId, providerSettings]
+    [projectKey, projectSiteId, providerSettings]
   )
   if (!hasJiraAssigneeCreateField(jiraCreateFields)) {
     return null
