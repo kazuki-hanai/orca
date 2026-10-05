@@ -1,9 +1,22 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { isWebClientLocation } from '@/lib/web-client-location'
 import { toast } from 'sonner'
 import { translate } from '@/i18n/i18n'
 import type { TaskPageJiraIssueCreationModel } from './use-task-page-jira-issue-creation'
 
-export function useTaskPageJiraSummaryGeneration(model: TaskPageJiraIssueCreationModel) {
+type SummaryGenerationModel = Pick<
+  TaskPageJiraIssueCreationModel,
+  | 'newJiraIssueOpen'
+  | 'newJiraIssueTitle'
+  | 'newJiraIssueBody'
+  | 'newJiraIssueSubmitting'
+  | 'newJiraIssueTargetProject'
+  | 'newJiraIssueTargetType'
+  | 'providerRuntimeContextKey'
+  | 'setNewJiraIssueTitle'
+>
+
+export function useTaskPageJiraSummaryGeneration<T extends SummaryGenerationModel>(model: T) {
   const {
     newJiraIssueOpen,
     newJiraIssueTitle,
@@ -11,8 +24,10 @@ export function useTaskPageJiraSummaryGeneration(model: TaskPageJiraIssueCreatio
     newJiraIssueSubmitting,
     newJiraIssueTargetProject,
     newJiraIssueTargetType,
-    setNewJiraIssueTitle
+    setNewJiraIssueTitle,
+    providerRuntimeContextKey
   } = model
+  const newJiraIssueSummaryAvailable = !isWebClientLocation()
   const [newJiraIssueSummaryGenerating, setNewJiraIssueSummaryGenerating] = useState(false)
   const generationNonceRef = useRef(0)
   const generatingRef = useRef(false)
@@ -24,36 +39,45 @@ export function useTaskPageJiraSummaryGeneration(model: TaskPageJiraIssueCreatio
     generationNonceRef.current += 1
     generatingRef.current = false
     setNewJiraIssueSummaryGenerating(false)
-    void window.api.jira.cancelGenerateIssueSummary()
+    void window.api.jira.cancelGenerateIssueSummary().catch(() => {})
   }, [])
 
-  // Why: closing the dialog abandons the request; without invalidating it a
-  // late result would overwrite the title typed on the next open. Refs only —
-  // the visible flag resets in the request's finally block.
-  useEffect(() => {
-    if (newJiraIssueOpen || !generatingRef.current) {
-      return
-    }
-    generationNonceRef.current += 1
-    generatingRef.current = false
-    void window.api.jira.cancelGenerateIssueSummary()
-  }, [newJiraIssueOpen])
-
-  // Why: unmounting the page must not strand a running generation on the host.
+  // Changing or abandoning a draft invalidates the external generation, including on unmount.
   useEffect(
     () => () => {
-      if (generatingRef.current) {
-        generationNonceRef.current += 1
-        generatingRef.current = false
-        void window.api.jira.cancelGenerateIssueSummary()
+      if (!generatingRef.current) {
+        return
       }
+      const canceledNonce = ++generationNonceRef.current
+      generatingRef.current = false
+      void window.api.jira
+        .cancelGenerateIssueSummary()
+        .catch(() => {})
+        .finally(() => {
+          if (generationNonceRef.current === canceledNonce) {
+            setNewJiraIssueSummaryGenerating(false)
+          }
+        })
     },
-    []
+    [
+      newJiraIssueOpen,
+      newJiraIssueBody,
+      newJiraIssueTargetProject?.siteId,
+      newJiraIssueTargetProject?.id,
+      newJiraIssueTargetType?.id,
+      providerRuntimeContextKey
+    ]
   )
 
   const handleGenerateNewJiraIssueSummary = useCallback(async (): Promise<void> => {
     const description = newJiraIssueBody.trim()
-    if (!description || generatingRef.current || newJiraIssueSubmitting) {
+    if (
+      !newJiraIssueSummaryAvailable ||
+      !newJiraIssueOpen ||
+      !description ||
+      generatingRef.current ||
+      newJiraIssueSubmitting
+    ) {
       return
     }
     const nonce = ++generationNonceRef.current
@@ -74,7 +98,7 @@ export function useTaskPageJiraSummaryGeneration(model: TaskPageJiraIssueCreatio
           toast.error(
             result.error ||
               translate(
-                'auto.components.use.task.page.jira.summary.generation.3de3ec2d25',
+                'components.jiraIssueTitleField.failed',
                 'Failed to generate a summary from the description.'
               )
           )
@@ -89,20 +113,21 @@ export function useTaskPageJiraSummaryGeneration(model: TaskPageJiraIssueCreatio
           error instanceof Error
             ? error.message
             : translate(
-                'auto.components.use.task.page.jira.summary.generation.3de3ec2d25',
+                'components.jiraIssueTitleField.failed',
                 'Failed to generate a summary from the description.'
               )
         )
       }
     } finally {
-      // Why: also clears the flag for a request abandoned by dialog close,
-      // where the nonce no longer matches but no newer request is running.
+      // A late completion must not clear a newer request’s progress.
       if (nonce === generationNonceRef.current || !generatingRef.current) {
         generatingRef.current = false
         setNewJiraIssueSummaryGenerating(false)
       }
     }
   }, [
+    newJiraIssueSummaryAvailable,
+    newJiraIssueOpen,
     newJiraIssueBody,
     newJiraIssueSubmitting,
     newJiraIssueTargetProject,
@@ -111,13 +136,13 @@ export function useTaskPageJiraSummaryGeneration(model: TaskPageJiraIssueCreatio
     setNewJiraIssueTitle
   ])
 
-  // Why: mutates the accumulating model like every other chain hook, but
-  // Object.assign's checked T & U return needs no type assertion.
   return Object.assign(model, {
+    newJiraIssueSummaryAvailable,
     newJiraIssueSummaryGenerating,
     handleGenerateNewJiraIssueSummary,
     handleCancelNewJiraIssueSummaryGeneration
   })
 }
 
-export type TaskPageJiraSummaryGenerationModel = ReturnType<typeof useTaskPageJiraSummaryGeneration>
+export type TaskPageJiraSummaryGenerationModel = TaskPageJiraIssueCreationModel &
+  ReturnType<typeof useTaskPageJiraSummaryGeneration>

@@ -16,72 +16,83 @@ import {
   generateJiraIssueSummaryFromContext
 } from '../text-generation/jira-issue-summary-text-generation'
 
-/**
- * The create dialog has no workspace, so generations run from the home
- * directory on the native host — same as folder-workspace title generation.
- */
-function jiraSummaryGenerationCwd(): string {
-  return os.homedir()
-}
-
-// Why: a lane cancellation token only exists once the plan starts; the
-// sequence pair closes the window where Stop lands during env preparation.
-let generationSeq = 0
-let canceledSeq = 0
-
 export function registerJiraIssueSummaryGenerationHandlers(
-  store: Store,
+  store: Pick<Store, 'getSettings'>,
   commitMessageAgentEnv?: CommitMessageAgentEnvironmentResolvers
 ): void {
+  const cwd = os.homedir()
+  let activeRequest: { senderId: number } | undefined
+  const cancel = (): void => {
+    activeRequest = undefined
+    cancelGenerateJiraIssueSummaryLocal(cwd)
+  }
+
   ipcMain.handle(
     'jira:generateIssueSummary',
     async (
-      _event,
+      event,
       args: JiraIssueSummaryGenerationContext
     ): Promise<JiraIssueSummaryGenerationResult> => {
       if (typeof args?.description !== 'string' || !args.description.trim()) {
         return { success: false, error: 'Description is required.' }
       }
-      const seq = ++generationSeq
-      // Why: reuses the branch-name agent/model choice — both title free-form
-      // work from a short text, and it spares a separate settings surface.
-      const resolved = resolveTextGenerationParams(
-        store.getSettings(),
-        LOCAL_COMMIT_MESSAGE_HOST_KEY,
-        'branchName',
-        null
-      )
-      if (!resolved.ok) {
-        return { success: false, error: resolved.error }
-      }
-      const localEnv = await prepareLocalCommitMessageAgentEnv(
-        resolved.params.agentId,
-        commitMessageAgentEnv
-      )
-      if (!localEnv.ok) {
-        return { success: false, error: localEnv.error }
-      }
-      if (canceledSeq >= seq) {
-        return { success: false, error: 'Generation canceled.', canceled: true }
-      }
-      return generateJiraIssueSummaryFromContext(
-        {
-          description: args.description,
-          projectName: typeof args.projectName === 'string' ? args.projectName : undefined,
-          issueTypeName: typeof args.issueTypeName === 'string' ? args.issueTypeName : undefined
-        },
-        resolved.params,
-        {
-          kind: 'local',
-          cwd: jiraSummaryGenerationCwd(),
-          ...(localEnv.env ? { env: localEnv.env } : {})
+      // The shared home-directory lane must not let one window stop another's request.
+      if (activeRequest && activeRequest.senderId !== event.sender.id) {
+        return {
+          success: false,
+          error: 'A Jira title is already being generated in another window.'
         }
-      )
+      }
+      cancel()
+      const request = { senderId: event.sender.id }
+      activeRequest = request
+      const cancelOnDestroy = (): void => {
+        if (activeRequest === request) {
+          cancel()
+        }
+      }
+      event.sender.once('destroyed', cancelOnDestroy)
+      try {
+        const resolved = resolveTextGenerationParams(
+          store.getSettings(),
+          LOCAL_COMMIT_MESSAGE_HOST_KEY,
+          'branchName',
+          null
+        )
+        if (!resolved.ok) {
+          return { success: false, error: resolved.error }
+        }
+        const localEnv = await prepareLocalCommitMessageAgentEnv(
+          resolved.params.agentId,
+          commitMessageAgentEnv
+        )
+        if (activeRequest !== request) {
+          return { success: false, error: 'Generation canceled.', canceled: true }
+        }
+        if (!localEnv.ok) {
+          return { success: false, error: localEnv.error }
+        }
+        return await generateJiraIssueSummaryFromContext(
+          {
+            description: args.description,
+            projectName: typeof args.projectName === 'string' ? args.projectName : undefined,
+            issueTypeName: typeof args.issueTypeName === 'string' ? args.issueTypeName : undefined
+          },
+          resolved.params,
+          { kind: 'local', cwd, ...(localEnv.env ? { env: localEnv.env } : {}) }
+        )
+      } finally {
+        event.sender.removeListener('destroyed', cancelOnDestroy)
+        if (activeRequest === request) {
+          activeRequest = undefined
+        }
+      }
     }
   )
 
-  ipcMain.handle('jira:cancelGenerateIssueSummary', () => {
-    canceledSeq = generationSeq
-    cancelGenerateJiraIssueSummaryLocal(jiraSummaryGenerationCwd())
+  ipcMain.handle('jira:cancelGenerateIssueSummary', (event) => {
+    if (activeRequest?.senderId === event.sender.id) {
+      cancel()
+    }
   })
 }
