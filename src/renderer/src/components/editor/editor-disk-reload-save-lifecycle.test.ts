@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AppState } from '@/store'
 import {
   ORCA_EDITOR_REQUEST_FILE_RELOAD_EVENT,
+  ORCA_EDITOR_SAVE_AND_CLOSE_EVENT,
   requestEditorFileSave,
   type EditorRequestFileReloadDetail
 } from './editor-autosave'
@@ -11,6 +12,11 @@ import {
   stubEditorWindowWithDisk
 } from './editor-autosave-controller-test-fixture'
 import { requestEditorTabDiskReload } from './editor-tab-disk-reload'
+import {
+  ORCA_EDITOR_SAVE_DIRTY_FILES_EVENT,
+  type EditorSaveDirtyFilesDetail
+} from '../../../../shared/editor-save-events'
+import { getDiskBaselineSignature } from './diff-content-signature'
 import { __clearSelfWriteRegistryForTests } from './editor-self-write-registry'
 
 const mocks = vi.hoisted(() => ({
@@ -119,6 +125,80 @@ describe('manual reload with the real editor save controller', () => {
     await vi.advanceTimersByTimeAsync(1500)
     expect(disk.files.get(FILE)).toBe('explicitly saved newer edit')
     expect(mocks.toast).not.toHaveBeenCalled()
+  })
+
+  it('lets a same-baseline clean save win over a pending reload', async () => {
+    store.getState().clearEditorDraft(FILE)
+    store.getState().markFileDirty(FILE, false)
+    store.getState().setLastKnownDiskSignature(FILE, getDiskBaselineSignature('baseline'))
+    await requestEditorTabDiskReload(FILE)
+    await requestEditorFileSave({ fileId: FILE, fallbackContent: 'baseline' })
+    expect(disk.files.get(FILE)).toBe('baseline')
+    expect(requestAt().beforeApply()).toBe(false)
+    requestAt().onSettled()
+  })
+
+  it('keeps a draft after an explicit save fails during a pending reload', async () => {
+    await requestEditorTabDiskReload(FILE)
+    disk.fs.writeFile.mockRejectedValueOnce(new Error('connection dropped'))
+    await expect(requestEditorFileSave({ fileId: FILE })).rejects.toThrow('connection dropped')
+    expect(requestAt().beforeApply()).toBe(false)
+    requestAt().onSettled()
+    expect(store.getState().editorDrafts[FILE]).toBe('draft a')
+  })
+
+  it('cancels replacement while the explicit write is still in flight', async () => {
+    let finishWrite = (): void => {}
+    disk.fs.writeFile.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          finishWrite = resolve
+        })
+    )
+    await requestEditorTabDiskReload(FILE)
+    const save = requestEditorFileSave({ fileId: FILE })
+    await vi.advanceTimersByTimeAsync(0)
+    expect(requestAt().beforeApply()).toBe(false)
+    requestAt().onSettled()
+    finishWrite()
+    await save
+  })
+
+  it('does not cancel for a save to a different file', async () => {
+    await requestEditorTabDiskReload(FILE)
+    openDirty('b')
+    await requestEditorFileSave({ fileId: '/repo/b.ts' })
+    expect(requestAt().beforeApply()).toBe(true)
+    requestAt().onSettled()
+    expect(disk.files.get(FILE)).toBe('external disk update')
+  })
+
+  it('preserves the draft when save-and-close fails during the read', async () => {
+    await requestEditorTabDiskReload(FILE)
+    disk.fs.writeFile.mockRejectedValueOnce(new Error('connection dropped'))
+    window.dispatchEvent(
+      new CustomEvent(ORCA_EDITOR_SAVE_AND_CLOSE_EVENT, { detail: { fileId: FILE } })
+    )
+    await vi.advanceTimersByTimeAsync(0)
+    expect(requestAt().beforeApply()).toBe(false)
+    requestAt().onSettled()
+    expect(store.getState().editorDrafts[FILE]).toBe('draft a')
+  })
+
+  it('preserves the draft when bulk save fails during the read', async () => {
+    await requestEditorTabDiskReload(FILE)
+    disk.fs.writeFile.mockRejectedValueOnce(new Error('connection dropped'))
+    const save = new Promise<void>((resolve, reject) => {
+      window.dispatchEvent(
+        new CustomEvent<EditorSaveDirtyFilesDetail>(ORCA_EDITOR_SAVE_DIRTY_FILES_EVENT, {
+          detail: { claim: () => {}, resolve, reject: (message) => reject(new Error(message)) }
+        })
+      )
+    })
+    await expect(save).rejects.toThrow('connection dropped')
+    expect(requestAt().beforeApply()).toBe(false)
+    requestAt().onSettled()
+    expect(store.getState().editorDrafts[FILE]).toBe('draft a')
   })
 
   it('does not strand autosave if no panel handles the reload', async () => {
