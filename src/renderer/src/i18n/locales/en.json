@@ -17208,13 +17208,6 @@
                 }
               }
             }
-          },
-          "jira": {
-            "IssueAssigneeField": {
-              "9f36a855a2": "Assignee",
-              "3a45582d68": "Automatic",
-              "b2693ea957": "Assign to me ({{value0}})"
-            }
           }
         }
       },
@@ -17677,6 +17670,11 @@
           "managePullRequests": "Read, comment on, and merge pull requests without leaving Orca"
         }
       }
+    },
+    "jiraIssueAssigneeField": {
+      "label": "Assignee",
+      "automatic": "Automatic",
+      "assignToMe": "Assign to me ({{name}})"
     },
     "jiraUserPicker": {
       "select": "Select {{value0}}",

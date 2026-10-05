@@ -10,7 +10,18 @@ import { translate } from '@/i18n/i18n'
 export function TaskPageJiraIssueAssigneeField({
   model
 }: {
-  model: TaskPageComposerActionsModel
+  model: Pick<
+    TaskPageComposerActionsModel,
+    | 'settings'
+    | 'jiraTaskSourceContext'
+    | 'jiraStatus'
+    | 'jiraCreateFields'
+    | 'newJiraIssueTargetProject'
+    | 'newJiraIssueAssignee'
+    | 'setNewJiraIssueAssignee'
+    | 'newJiraIssueSubmitting'
+    | 'providerRuntimeContextKey'
+  >
 }): React.JSX.Element | null {
   const {
     settings,
@@ -36,14 +47,8 @@ export function TaskPageJiraIssueAssigneeField({
     return null
   }
   const selfUser = getJiraSelfUser(jiraStatus, projectSiteId ?? null)
-  const assigneeLabel = translate(
-    'auto.components.task.page.jira.IssueAssigneeField.9f36a855a2',
-    'Assignee'
-  )
-  const automaticLabel = translate(
-    'auto.components.task.page.jira.IssueAssigneeField.3a45582d68',
-    'Automatic'
-  )
+  const assigneeLabel = translate('components.jiraIssueAssigneeField.label', 'Assignee')
+  const automaticLabel = translate('components.jiraIssueAssigneeField.automatic', 'Automatic')
   const fixedOptions: JiraUserPickerFixedOption[] = [
     {
       key: 'automatic',
@@ -55,9 +60,9 @@ export function TaskPageJiraIssueAssigneeField({
           {
             key: 'self',
             label: translate(
-              'auto.components.task.page.jira.IssueAssigneeField.b2693ea957',
-              'Assign to me ({{value0}})',
-              { value0: selfUser.displayName }
+              'components.jiraIssueAssigneeField.assignToMe',
+              'Assign to me ({{name}})',
+              { name: selfUser.displayName }
             ),
             onSelect: () => setNewJiraIssueAssignee(selfUser)
           }
@@ -69,12 +74,13 @@ export function TaskPageJiraIssueAssigneeField({
       <div className="flex min-w-0 flex-col gap-1">
         <label className="text-[11px] font-medium text-muted-foreground">{assigneeLabel}</label>
         <JiraUserPicker
-          // Cached search results belong to one project and site.
-          key={
+          // Cached candidates belong to one provider, project, and site.
+          key={JSON.stringify([
+            model.providerRuntimeContextKey,
             newJiraIssueTargetProject
               ? getJiraProjectSelectionKey(newJiraIssueTargetProject)
               : 'no-project'
-          }
+          ])}
           providerSettings={providerSettings}
           siteId={projectSiteId ?? undefined}
           value={newJiraIssueAssignee ? newJiraIssueAssignee.accountId : automaticLabel}
