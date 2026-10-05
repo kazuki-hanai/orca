@@ -7,12 +7,6 @@ import { getJiraProjectSelectionKey } from '@/components/task-page-jira-project-
 import { jiraListAssignableUsersForProject } from '@/runtime/runtime-jira-client'
 import { translate } from '@/i18n/i18n'
 
-/**
- * Assignee picker of the new-issue dialog: Automatic (Jira's project default),
- * one-click "Assign to me", or any project-assignable user. Hidden when the
- * target create screen does not accept an assignee, since Jira rejects creates
- * that set a field absent from the screen.
- */
 export function TaskPageJiraIssueAssigneeField({
   model
 }: {
@@ -75,8 +69,7 @@ export function TaskPageJiraIssueAssigneeField({
       <div className="flex min-w-0 flex-col gap-1">
         <label className="text-[11px] font-medium text-muted-foreground">{assigneeLabel}</label>
         <JiraUserPicker
-          // Why: remounting per project drops search results cached from the
-          // previous project or site, which are not assignable here.
+          // Cached search results belong to one project and site.
           key={
             newJiraIssueTargetProject
               ? getJiraProjectSelectionKey(newJiraIssueTargetProject)

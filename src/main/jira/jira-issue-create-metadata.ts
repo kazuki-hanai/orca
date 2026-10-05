@@ -205,10 +205,7 @@ export async function listAssignableUsers(
   return searchAssignableUsers({ issueKey: key }, query, siteId, 'listAssignableUsers')
 }
 
-/**
- * Lists users assignable in a project, for the create dialog where no issue
- * key exists yet.
- */
+// Creation has no issue key yet, so assignability is scoped by project.
 export async function listAssignableUsersForProject(
   projectIdOrKey: string,
   query?: string,

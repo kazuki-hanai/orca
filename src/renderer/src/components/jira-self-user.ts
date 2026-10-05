@@ -1,15 +1,13 @@
 import type { JiraConnectionStatus, JiraUser } from '../../../shared/jira-types'
 
-/**
- * The signed-in user for "Assign to me", resolved for a specific site because
- * account ids are site-scoped. The site's stored identity wins; the viewer
- * (active site's /myself) only stands in when the target site is the active
- * one or the setup has at most one site.
- */
+// Site identities take precedence over the active site's viewer.
 export function getJiraSelfUser(
   status: JiraConnectionStatus | null | undefined,
   siteId: string | null | undefined
 ): JiraUser | null {
+  if (!status?.connected) {
+    return null
+  }
   const sites = status?.sites ?? []
   const site = siteId ? sites.find((candidate) => candidate.id === siteId) : null
   if (site?.accountId) {
@@ -19,7 +17,10 @@ export function getJiraSelfUser(
     }
   }
   const viewer = status?.viewer
-  if (viewer?.accountId && (!siteId || siteId === status?.activeSiteId || sites.length <= 1)) {
+  if (
+    viewer?.accountId &&
+    (!siteId || siteId === status.activeSiteId || (site?.id === siteId && sites.length === 1))
+  ) {
     return {
       accountId: viewer.accountId,
       displayName: viewer.displayName,

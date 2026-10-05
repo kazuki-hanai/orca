@@ -82,8 +82,22 @@ describe('getJiraSelfUser', () => {
     expect(withoutSiteId?.accountId).toBe('viewer-1')
   })
 
+  it('never borrows the viewer for an explicitly unknown site', () => {
+    expect(getJiraSelfUser(status({ activeSiteId: 'a' }), 'b')).toBeNull()
+    expect(
+      getJiraSelfUser(
+        status({
+          activeSiteId: 'a',
+          sites: [{ id: 'a', siteUrl: 'https://a', email: '', displayName: '', accountId: '' }]
+        }),
+        'b'
+      )
+    ).toBeNull()
+  })
+
   it('returns null when nothing is connected', () => {
     expect(getJiraSelfUser(null, 'a')).toBeNull()
+    expect(getJiraSelfUser(status({ connected: false }), null)).toBeNull()
     expect(getJiraSelfUser({ connected: false, viewer: null }, null)).toBeNull()
   })
 })

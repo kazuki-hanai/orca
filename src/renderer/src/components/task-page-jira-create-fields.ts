@@ -15,10 +15,7 @@ export const JIRA_REPORTER_FIELD_KEY = 'reporter'
 
 export const JIRA_ASSIGNEE_FIELD_KEY = 'assignee'
 
-/**
- * True when the project + issue type's create screen accepts an assignee.
- * Jira rejects creates that set a field absent from the create screen.
- */
+// Jira rejects fields absent from the create screen.
 export function hasJiraAssigneeCreateField(fields: readonly JiraCreateField[]): boolean {
   return fields.some((field) => field.key === JIRA_ASSIGNEE_FIELD_KEY)
 }
@@ -128,14 +125,7 @@ export function buildJiraCreateCustomFields(
   return Object.keys(customFields).length > 0 ? customFields : undefined
 }
 
-/**
- * Shapes the dialog draft into the create payload: merges the picked assignee
- * into customFields (omitted when null — Jira then applies the project's
- * default assignee) and names every user-typed key that carries a value, so
- * the host wraps those ids as the {accountId}/{name} refs Jira requires.
- * Valueless user fields stay unnamed to keep `userFieldKeys` empty when
- * nothing needs shaping — older remote hosts reject the capability otherwise.
- */
+// Only populated user fields require the remote user-field capability.
 export function buildJiraCreateSubmission(
   fields: readonly JiraCreateField[],
   values: Record<string, string>,

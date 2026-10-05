@@ -49,12 +49,7 @@ export async function jiraListAssignableUsers(
     : window.api.jira.listAssignableUsers(args)
 }
 
-/**
- * Lists users assignable in a project, for the create dialog where no issue
- * key exists yet. Remote runtimes have no such RPC, so environment targets
- * fall back to the site-wide user search — older hosts keep working and a
- * genuinely unassignable pick still surfaces through the create error.
- */
+// Remote hosts lack project search; use their capability-gated site search.
 export async function jiraListAssignableUsersForProject(
   settings: RuntimeJiraSettings,
   projectIdOrKey: string,
