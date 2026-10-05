@@ -46,11 +46,7 @@ import { resolveQuickCreateLinkedWorkItemPrompt } from '@/lib/linked-work-item-c
 import { buildQuickComposerStartup } from './quick-startup-plan'
 import { buildQuickCreationRequest } from './quick-creation-request'
 import type { PendingSmartGitHubSubmitResolution } from './source-selection-decisions'
-import {
-  hasExplicitTuiLaunchCustomization,
-  resolveAgentLaunchRoute
-} from '@/lib/agent-launch-routing'
-import { readLocalRuntimeCapabilitiesOrUnknown } from '@/runtime/local-runtime-capabilities'
+import { resolveAgentSessionLaunchRoute } from '@/lib/agent-session-launch-plan'
 
 export function useQuickCreationExecution(input: QuickCreationExecutionInput) {
   const {
@@ -198,19 +194,20 @@ export function useQuickCreationExecution(input: QuickCreationExecutionInput) {
         }
       }
 
+      const promptDelivery = quickDraftPrompt ? 'draft' : 'auto-submit'
+      // Why: the verdict is persisted on the request as data and re-entered once the worktree exists.
       const agentLaunchRoute = agent
-        ? resolveAgentLaunchRoute({
+        ? resolveAgentSessionLaunchRoute(useAppStore.getState(), {
             agent,
-            settings,
-            executionHostId: ephemeralVmRecipe
-              ? 'runtime:pending-ephemeral-vm'
-              : (workspaceRunContext?.hostId ?? selectedRepoExecutionHostId ?? 'local'),
-            hostCapabilities: readLocalRuntimeCapabilitiesOrUnknown(),
-            workspaceKind: selectedRepoIsGit ? 'git-worktree' : 'folder',
-            promptDelivery: quickDraftPrompt ? 'draft' : 'auto-submit',
-            launchText: quickDraftPrompt ?? quickPrompt,
-            nativeChatTranscriptIsLocalReadable: !selectedRepoIsRemote,
-            requiresTuiLaunchCustomization: hasExplicitTuiLaunchCustomization(settings, agent),
+            workspace: {
+              kind: selectedRepoIsGit ? 'git-worktree' : 'folder',
+              repoId,
+              executionHostId: ephemeralVmRecipe
+                ? 'runtime:pending-ephemeral-vm'
+                : (workspaceRunContext?.hostId ?? selectedRepoExecutionHostId ?? undefined)
+            },
+            prompt: quickDraftPrompt ?? quickPrompt,
+            promptDelivery,
             initialSessionOptions: startupPlan?.sessionOptions
           })
         : 'terminal-tui'
@@ -257,6 +254,7 @@ export function useQuickCreationExecution(input: QuickCreationExecutionInput) {
         startupPlan,
         quickPrompt,
         launchDraftPrompt: quickDraftPrompt,
+        promptDelivery,
         quickTelemetry,
         suppressTerminalFocusOnCompletion: createMultiple
       })

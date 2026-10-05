@@ -39,6 +39,14 @@ export const NativeChatPickerMenu = memo(function NativeChatPickerMenu({
   const emptyText = noMatches ? getPickerEmptyText(autocomplete) : null
   const collision = commands.find((item) => item.skillCollision)
   const duplicate = skills.find((item) => item.sources.length > 1)
+  // One sentence for the line and the screen reader, so the two never disagree.
+  const skillErrorText =
+    autocomplete.skillErrorKind === 'unavailable'
+      ? translate(
+          'components.native-chat.composer.skillsUnavailableHost',
+          "Skills aren't available in SSH chats"
+        )
+      : translate('components.native-chat.composer.skillsLoadFailed', "Couldn't load skills")
 
   let optionIndex = 0
   return (
@@ -71,17 +79,7 @@ export const NativeChatPickerMenu = memo(function NativeChatPickerMenu({
       ) : null}
       {autocomplete.skillStatus === 'error' ? (
         <PickerStatus>
-          <span className="min-w-0 flex-1">
-            {autocomplete.skillErrorKind === 'unavailable'
-              ? translate(
-                  'components.native-chat.composer.skillsUnavailableHost',
-                  'Skills are unavailable for this host'
-                )
-              : translate(
-                  'components.native-chat.composer.skillsLoadFailed',
-                  'Could not load skills from this host'
-                )}
-          </span>
+          <span className="min-w-0 flex-1">{skillErrorText}</span>
           {autocomplete.skillErrorKind !== 'unavailable' ? (
             <button
               type="button"
@@ -114,10 +112,7 @@ export const NativeChatPickerMenu = memo(function NativeChatPickerMenu({
         {autocomplete.skillStatus === 'loading'
           ? translate('components.native-chat.composer.loadingSkills', 'Loading skills...')
           : autocomplete.skillStatus === 'error'
-            ? translate(
-                'components.native-chat.composer.skillsLoadFailed',
-                'Could not load skills from this host'
-              )
+            ? skillErrorText
             : emptyText
               ? emptyText
               : autocomplete.skillsEnabled
@@ -209,7 +204,14 @@ function PickerOption({
         <Package className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
       ) : null}
       <span className="min-w-0 flex-1">
-        <span className="block truncate font-mono font-medium">{item.token}</span>
+        <span className="flex min-w-0 items-baseline gap-1.5">
+          <span className="min-w-0 truncate font-mono font-medium">{item.token}</span>
+          {item.kind === 'command' && item.argumentHint ? (
+            <span className="min-w-0 truncate font-mono text-[11px] text-muted-foreground">
+              {item.argumentHint}
+            </span>
+          ) : null}
+        </span>
         {item.description ? (
           <span className="block truncate text-xs text-muted-foreground">{item.description}</span>
         ) : null}
@@ -269,7 +271,10 @@ export function NativeChatMentionHint({
         event.preventDefault()
         onAccept()
       }}
-      className="absolute bottom-full left-3 right-3 mb-1 flex w-auto items-center gap-2 rounded-md border border-border bg-popover px-3 py-1.5 text-left text-xs text-muted-foreground shadow-md sm:left-4 sm:right-4"
+      // Why z-20: matches the slash picker. The composer shell below is a paint
+      // containment boundary (#10481), so it now paints at z-index 0 in tree
+      // order and would otherwise cover this hint's drop shadow.
+      className="absolute bottom-full left-3 right-3 z-20 mb-1 flex w-auto items-center gap-2 rounded-md border border-border bg-popover px-3 py-1.5 text-left text-xs text-muted-foreground shadow-md sm:left-4 sm:right-4"
     >
       {translate('components.native-chat.composer.mentionHint', 'Referencing file:')}{' '}
       <span className="font-medium text-foreground">@{query || '…'}</span>
