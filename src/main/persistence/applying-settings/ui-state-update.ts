@@ -31,6 +31,7 @@ import {
 import {
   normalizeGroupBy,
   normalizeProjectOrderBy,
+  normalizeNotificationsMutedByWorktree,
   normalizeRightSidebarExplorerView,
   normalizeRightSidebarTab,
   normalizeShowDotfilesByWorktree,
@@ -171,6 +172,10 @@ export function updatePersistedUI(
       sanitizedUpdates.showDotfilesByWorktree !== undefined
         ? normalizeShowDotfilesByWorktree(sanitizedUpdates.showDotfilesByWorktree)
         : normalizeShowDotfilesByWorktree(operations.state.ui?.showDotfilesByWorktree),
+    notificationsMutedByWorktree:
+      sanitizedUpdates.notificationsMutedByWorktree !== undefined
+        ? normalizeNotificationsMutedByWorktree(sanitizedUpdates.notificationsMutedByWorktree)
+        : normalizeNotificationsMutedByWorktree(operations.state.ui?.notificationsMutedByWorktree),
     featureTipsSeenIds:
       sanitizedUpdates.featureTipsSeenIds !== undefined
         ? normalizeFeatureTipIds(sanitizedUpdates.featureTipsSeenIds)

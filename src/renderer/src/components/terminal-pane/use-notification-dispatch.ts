@@ -178,6 +178,12 @@ export function dispatchTerminalNotification(
     return
   }
 
+  // Why: per-worktree mute stops at the interruptions (OS banner, sound, mobile
+  // push, tray dot); the unread marking above still runs so the sidebar shows state.
+  if (state.notificationsMutedByWorktree?.[worktreeId] === true) {
+    return
+  }
+
   // Why: prefer worktree.repoId over string-parsing the worktreeId. The
   // `${repoId}::${path}` format is an implementation detail of id
   // construction; coupling the notification dispatcher to it would silently

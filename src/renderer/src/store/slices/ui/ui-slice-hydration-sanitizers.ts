@@ -79,16 +79,17 @@ export function hydrateTrustedOrcaHooks(
   return next
 }
 
-export function sanitizeShowDotfilesByWorktree(value: unknown): Record<string, boolean> {
+/** Shared shape of the per-worktree boolean preference maps (dotfile visibility, notification mute). */
+export function sanitizeWorktreeFlagRecord(value: unknown): Record<string, boolean> {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) {
     return {}
   }
   const out: Record<string, boolean> = {}
-  for (const [worktreeId, showDotfiles] of Object.entries(value as Record<string, unknown>)) {
-    if (!worktreeId || !isSafePersistedRecordKey(worktreeId) || typeof showDotfiles !== 'boolean') {
+  for (const [worktreeId, flag] of Object.entries(value as Record<string, unknown>)) {
+    if (!worktreeId || !isSafePersistedRecordKey(worktreeId) || typeof flag !== 'boolean') {
       continue
     }
-    out[worktreeId] = showDotfiles
+    out[worktreeId] = flag
   }
   return out
 }

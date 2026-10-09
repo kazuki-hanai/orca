@@ -74,6 +74,8 @@ export type PersistedUIState = {
   alwaysShowDefaultBranchWorkspace?: boolean
   /** Per-worktree Explorer dotfile visibility. Missing entries inherit the default: show. */
   showDotfilesByWorktree?: Record<string, boolean>
+  /** Per-worktree notification mute. Missing entries inherit the default: not muted. */
+  notificationsMutedByWorktree?: Record<string, boolean>
   filterRepoIds: string[]
   /** Agents-view host scope; deliberately separate from visibleWorkspaceHostIds so a monitoring surface never inherits nav filters silently. `null` = all hosts. */
   agentsVisibleHostIds?: VisibleWorkspaceHostIds

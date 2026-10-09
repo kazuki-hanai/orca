@@ -25,6 +25,7 @@ import { normalizeFeatureInteractions } from '../../../shared/feature-interactio
 import {
   normalizeGroupBy,
   normalizeProjectOrderBy,
+  normalizeNotificationsMutedByWorktree,
   normalizeRightSidebarExplorerView,
   normalizeRightSidebarTab,
   normalizeShowDotfilesByWorktree,
@@ -67,6 +68,9 @@ export function getPersistedUI(
     manualRepoOrder: normalizeManualRepoOrder(state.ui?.manualRepoOrder),
     browserDefaultZoomLevel: normalizeBrowserPageZoomLevel(state.ui?.browserDefaultZoomLevel),
     showDotfilesByWorktree: normalizeShowDotfilesByWorktree(state.ui?.showDotfilesByWorktree),
+    notificationsMutedByWorktree: normalizeNotificationsMutedByWorktree(
+      state.ui?.notificationsMutedByWorktree
+    ),
     featureTipsSeenIds: normalizeFeatureTipIds(state.ui?.featureTipsSeenIds),
     contextualToursSeenIds: normalizeContextualTourIds(state.ui?.contextualToursSeenIds),
     featureInteractions: normalizeFeatureInteractions(state.ui?.featureInteractions),

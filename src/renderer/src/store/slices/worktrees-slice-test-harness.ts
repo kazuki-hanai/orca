@@ -169,6 +169,7 @@ export function createTestStore() {
         markdownRichModeSizeOverride: {},
         editorViewMode: {},
         showDotfilesByWorktree: {},
+        notificationsMutedByWorktree: {},
         expandedDirs: {},
         gitStatusByWorktree: {},
         gitStatusHeadByWorktree: {},

@@ -7,6 +7,7 @@ import { isExistingPersistedProfile } from '../../../shared/project-order-manual
 import { resolveUsagePercentageDisplayChangeNoticeDismissed } from '../../../shared/usage-percentage-display-change-notice'
 import { normalizePersistedWorkspaceStatuses } from '../../../shared/workspace-statuses'
 import {
+  normalizeNotificationsMutedByWorktree,
   normalizeRightSidebarExplorerView,
   normalizeRightSidebarTab,
   normalizeShowDotfilesByWorktree,
@@ -190,6 +191,9 @@ export function normalizeLoadedUiState(
     osc52ClipboardDefaultOnNoticePending: osc52ClipboardNoticePending,
     sortBy: migrate ? ('smart' as const) : sort,
     showDotfilesByWorktree: normalizeShowDotfilesByWorktree(parsed.ui?.showDotfilesByWorktree),
+    notificationsMutedByWorktree: normalizeNotificationsMutedByWorktree(
+      parsed.ui?.notificationsMutedByWorktree
+    ),
     workspaceStatuses,
     _workspaceStatusesDefaultOrderMigrated: true,
     _workspaceStatusesReorderedDefaultRepaired: true,

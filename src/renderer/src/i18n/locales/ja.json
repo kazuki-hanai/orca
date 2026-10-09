@@ -4587,6 +4587,9 @@
         "WorktreeCardAgents": {
           "1b0a156717": "Agent"
         },
+        "WorktreeCardMetaRow": {
+          "notificationsMuted": "通知はミュート中"
+        },
         "WorktreeCardReviewDetailSection": {
           "reviewHeader": "{{value0}} #{{value1}}",
           "copyLink": "リンクをコピー"
@@ -4680,7 +4683,9 @@
           "setParentWorkspace": "親ワークツリーを設定…",
           "workspaceSection": "ワークスペース",
           "primaryDeleteDisabled": "プライマリワークツリーは削除できません。代わりにプロジェクトを削除してください。",
-          "deleteWorktree": "ワークツリーを削除"
+          "deleteWorktree": "ワークツリーを削除",
+          "muteNotifications": "通知をミュート",
+          "unmuteNotifications": "通知のミュートを解除"
         },
         "WorktreeList": {
           "d880ea0744": "グループを作成し、このプロジェクトをそのグループに移動します。",

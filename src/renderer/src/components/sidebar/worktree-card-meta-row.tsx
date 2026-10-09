@@ -1,5 +1,5 @@
 import React from 'react'
-import { GitMerge } from 'lucide-react'
+import { BellOff, GitMerge } from 'lucide-react'
 
 import { DetachedHeadBadge } from '@/components/DetachedHeadBadge'
 import { RepoBadgeMark } from '@/components/repo/RepoBadgeLabel'
@@ -8,6 +8,8 @@ import CacheTimer from './CacheTimer'
 import { CONFLICT_OPERATION_LABELS } from './WorktreeCardHelpers'
 import { TruncatedSidebarLabel } from './truncated-sidebar-label'
 import { getDirectoryName } from './worktree-card-model'
+import { translate } from '@/i18n/i18n'
+import { useAppStore } from '@/store'
 import type { WorktreeCardPresentation } from './worktree-card-presentation'
 import type { WorktreeCardController } from './use-worktree-card-controller'
 
@@ -42,6 +44,9 @@ export function WorktreeCardMetaRow({
     showMetaRowDetails,
     detailsAndPorts
   } = presentation
+  const notificationsMuted = useAppStore(
+    (s) => s.notificationsMutedByWorktree?.[worktree.id] === true
+  )
 
   return (
     <div className="flex items-center gap-1.5 min-w-0" data-worktree-card-meta-row="">
@@ -105,6 +110,19 @@ export function WorktreeCardMetaRow({
 
         {cacheStartedAt != null && <CacheTimer startedAt={cacheStartedAt} ttlMs={cacheTtlMs} />}
       </div>
+
+      {notificationsMuted && (
+        <span
+          className="flex shrink-0 items-center text-muted-foreground/70"
+          title={translate(
+            'auto.components.sidebar.WorktreeCardMetaRow.notificationsMuted',
+            'Notifications muted'
+          )}
+          data-worktree-card-muted-indicator=""
+        >
+          <BellOff className="size-3" />
+        </span>
+      )}
 
       {showMetaRowDetails && (
         <div className="ml-auto flex shrink-0 items-center gap-1 pr-1.5">{detailsAndPorts}</div>

@@ -4592,6 +4592,9 @@
         "WorktreeCardAgents": {
           "1b0a156717": "에이전트"
         },
+        "WorktreeCardMetaRow": {
+          "notificationsMuted": "알림 음소거됨"
+        },
         "WorktreeCardReviewDetailSection": {
           "reviewHeader": "{{value0}} #{{value1}}",
           "copyLink": "링크 복사"
@@ -4685,7 +4688,9 @@
           "setParentWorkspace": "상위 워크트리 설정...",
           "workspaceSection": "워크스페이스",
           "primaryDeleteDisabled": "기본 작업 트리는 삭제할 수 없습니다. 대신 프로젝트를 제거하세요.",
-          "deleteWorktree": "작업 트리 삭제"
+          "deleteWorktree": "작업 트리 삭제",
+          "muteNotifications": "알림 음소거",
+          "unmuteNotifications": "알림 음소거 해제"
         },
         "WorktreeList": {
           "d880ea0744": "그룹을 만들고 이 프로젝트를 그룹으로 이동하세요.",

@@ -56,8 +56,8 @@ import {
   preserveStringArrayIdentity,
   sanitizeHydratedActiveView,
   sanitizePersistedRepoIds,
-  sanitizeShowDotfilesByWorktree,
   sanitizeWorkspaceCleanupDismissals,
+  sanitizeWorktreeFlagRecord,
   sanitizePersistedSidebarWidth,
   hydratedUIPartialMatchesState,
   migrateStatusBarItems,
@@ -168,7 +168,8 @@ export function createUiHydrationActions(set: UISliceSet, _get: UISliceGet): Par
           // Why !== false: profiles written before #8873 have no key, and they are
           // precisely the ones showing the bug, so absence must mean "exempt".
           alwaysShowDefaultBranchWorkspace: ui.alwaysShowDefaultBranchWorkspace !== false,
-          showDotfilesByWorktree: sanitizeShowDotfilesByWorktree(ui.showDotfilesByWorktree),
+          showDotfilesByWorktree: sanitizeWorktreeFlagRecord(ui.showDotfilesByWorktree),
+          notificationsMutedByWorktree: sanitizeWorktreeFlagRecord(ui.notificationsMutedByWorktree),
           // Why: startup hydrates UI before repo catalogs, so defer repo-filter validation to the all-host refresh.
           filterRepoIds:
             validRepoIds.size === 0
