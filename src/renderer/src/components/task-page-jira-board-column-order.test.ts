@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import {
   applyJiraBoardColumnOrder,
   loadJiraBoardColumnOrder,
+  mergeJiraBoardColumnOrder,
   moveJiraBoardColumn,
   saveJiraBoardColumnOrder
 } from './task-page-jira-board-column-order'
@@ -76,6 +77,39 @@ describe('moveJiraBoardColumn', () => {
     expect(moveJiraBoardColumn(keys, 'todo', 'todo')).toEqual(keys)
     expect(moveJiraBoardColumn(keys, 'todo', 'missing')).toEqual(keys)
     expect(moveJiraBoardColumn(keys, 'missing', 'todo')).toEqual(keys)
+  })
+})
+
+describe('mergeJiraBoardColumnOrder', () => {
+  it('returns the visible order when nothing is saved', () => {
+    expect(mergeJiraBoardColumnOrder([], ['todo', 'done'])).toEqual(['todo', 'done'])
+  })
+
+  it('keeps a lane the current filter hides behind the lane it followed', () => {
+    const saved = ['todo', 'blocked', 'doing', 'done']
+
+    expect(mergeJiraBoardColumnOrder(saved, ['done', 'todo', 'doing'])).toEqual([
+      'done',
+      'todo',
+      'blocked',
+      'doing'
+    ])
+  })
+
+  it('keeps a hidden leading lane in front', () => {
+    expect(mergeJiraBoardColumnOrder(['blocked', 'todo', 'done'], ['done', 'todo'])).toEqual([
+      'blocked',
+      'done',
+      'todo'
+    ])
+  })
+
+  it('adds a lane the saved order has never seen', () => {
+    expect(mergeJiraBoardColumnOrder(['todo', 'done'], ['todo', 'review', 'done'])).toEqual([
+      'todo',
+      'review',
+      'done'
+    ])
   })
 })
 

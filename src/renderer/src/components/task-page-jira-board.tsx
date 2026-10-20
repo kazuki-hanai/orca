@@ -85,7 +85,8 @@ export function TaskPageJiraBoard({
     onColumnDragEnd,
     onColumnDragOver,
     onColumnDrop,
-    moveColumnBy
+    moveColumnBy,
+    registerColumnHeader
   } = useJiraBoardColumnOrder(boardSections, columnOrderScopeKey)
 
   const handleCardDragStart = (issue: JiraIssue, event: React.DragEvent<HTMLDivElement>): void => {
@@ -162,6 +163,7 @@ export function TaskPageJiraBoard({
             )}
           >
             <div
+              ref={(node) => registerColumnHeader(section.key, node)}
               role="button"
               tabIndex={0}
               draggable

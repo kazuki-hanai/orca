@@ -124,12 +124,69 @@ describe('Jira board column reordering', () => {
     expect(laneOrder()).toEqual(['In Progress', 'To Do', 'Done'])
   })
 
+  // The browser-accurate version of this runs in tests/tools/jira-board-column-order-rendered.
+  it('keeps focus on the moved header so a second arrow press lands', () => {
+    mount()
+    const handle = screen.getByRole('button', { name: 'Reorder To Do' })
+    handle.focus()
+
+    fireEvent.keyDown(handle, { key: 'ArrowRight' })
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Reorder To Do' }))
+
+    fireEvent.keyDown(screen.getByRole('button', { name: 'Reorder To Do' }), { key: 'ArrowRight' })
+    expect(laneOrder()).toEqual(['In Progress', 'Done', 'To Do'])
+  })
+
   it('ignores an arrow key that would move a lane past the end', () => {
     mount()
 
     fireEvent.keyDown(screen.getByRole('button', { name: 'Reorder To Do' }), { key: 'ArrowLeft' })
 
     expect(laneOrder()).toEqual(['To Do', 'In Progress', 'Done'])
+  })
+
+  it('keeps a lane that a filter hid in the place the user put it', () => {
+    // A status outside the board config only gets a lane while an issue is in it.
+    const blocked = issue('ABC-9', 'blocked', 'Blocked')
+    const configured: JiraProjectStatusOrder = {
+      statusIdsByColumn: [['todo'], ['doing']],
+      columns: [
+        { name: 'To Do', statusIds: ['todo'] },
+        { name: 'In Progress', statusIds: ['doing'] }
+      ]
+    }
+    const withBlocked = [issues[0], issues[1], blocked]
+    const withoutBlocked = [issues[0], issues[1]]
+    const board = (shown: JiraIssue[]): React.JSX.Element => (
+      <TooltipProvider>
+        <TaskPageJiraBoard
+          columnOrderScopeKey="scope-a"
+          formatUpdatedAt={() => '2d'}
+          issues={shown}
+          onMoveIssue={async () => {}}
+          onOpenIssue={() => {}}
+          onStartWorkspace={() => {}}
+          selectedIssue={null}
+          showSiteContext={false}
+          statusOrder={configured}
+          updatingIssueKeys={new Set()}
+        />
+      </TooltipProvider>
+    )
+
+    const { rerender } = render(board(withBlocked))
+    expect(laneOrder()).toEqual(['To Do', 'In Progress', 'Blocked'])
+    dragLaneOnto('Blocked', 'To Do')
+    expect(laneOrder()).toEqual(['Blocked', 'To Do', 'In Progress'])
+
+    // The filter drops the only Blocked issue, so that lane disappears; reorder the rest.
+    rerender(board(withoutBlocked))
+    dragLaneOnto('In Progress', 'To Do')
+    expect(laneOrder()).toEqual(['In Progress', 'To Do'])
+
+    rerender(board(withBlocked))
+
+    expect(laneOrder()).toEqual(['Blocked', 'In Progress', 'To Do'])
   })
 
   it('still moves an issue when a card is dropped on another lane', async () => {
