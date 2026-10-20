@@ -75,6 +75,32 @@ export function applyJiraBoardColumnOrder(
     .map((entry) => entry.section)
 }
 
+/**
+ * Folds a new visible lane order back into the saved one. A filter or search can hide a
+ * lane entirely, and saving only what is on screen would drop that lane's saved position;
+ * each hidden lane stays behind the visible lane it already followed.
+ */
+export function mergeJiraBoardColumnOrder(
+  saved: readonly string[],
+  visible: readonly string[]
+): string[] {
+  const visibleKeys = new Set(visible)
+  const hiddenAfter = new Map<string | null, string[]>()
+  let anchor: string | null = null
+  for (const key of saved) {
+    if (visibleKeys.has(key)) {
+      anchor = key
+      continue
+    }
+    hiddenAfter.set(anchor, [...(hiddenAfter.get(anchor) ?? []), key])
+  }
+  const merged = [...(hiddenAfter.get(null) ?? [])]
+  for (const key of visible) {
+    merged.push(key, ...(hiddenAfter.get(key) ?? []))
+  }
+  return merged
+}
+
 /** Returns the full lane order with `movedKey` placed where `targetKey` sits. */
 export function moveJiraBoardColumn(
   keys: readonly string[],

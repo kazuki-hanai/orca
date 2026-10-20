@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import {
   readJiraBoardColumnDragData,
   writeJiraBoardColumnDragData
@@ -6,6 +6,7 @@ import {
 import {
   applyJiraBoardColumnOrder,
   loadJiraBoardColumnOrder,
+  mergeJiraBoardColumnOrder,
   moveJiraBoardColumn,
   saveJiraBoardColumnOrder
 } from './task-page-jira-board-column-order'
@@ -22,6 +23,8 @@ export type JiraBoardColumnOrderModel = {
   onColumnDragOver: (key: string, event: React.DragEvent<HTMLElement>) => boolean
   onColumnDrop: (key: string, event: React.DragEvent<HTMLElement>) => boolean
   moveColumnBy: (key: string, offset: number) => void
+  /** Lets a keyboard move put focus back on the header React just re-inserted. */
+  registerColumnHeader: (key: string, node: HTMLElement | null) => void
 }
 
 export function useJiraBoardColumnOrder(
@@ -37,6 +40,8 @@ export function useJiraBoardColumnOrder(
   }
   const [draggingColumnKey, setDraggingColumnKey] = useState<string | null>(null)
   const [dragOverColumnKey, setDragOverColumnKey] = useState<string | null>(null)
+  const headerRefs = useRef(new Map<string, HTMLElement>())
+  const refocusKeyRef = useRef<string | null>(null)
 
   const sections = useMemo(
     () => applyJiraBoardColumnOrder(boardSections, order),
@@ -48,15 +53,16 @@ export function useJiraBoardColumnOrder(
       if (movedKey === targetKey) {
         return
       }
-      const next = moveJiraBoardColumn(
+      const visible = moveJiraBoardColumn(
         sections.map((section) => section.key),
         movedKey,
         targetKey
       )
+      const next = mergeJiraBoardColumnOrder(order, visible)
       saveJiraBoardColumnOrder(scopeKey, next)
       setOrder(next)
     },
-    [scopeKey, sections]
+    [order, scopeKey, sections]
   )
 
   const onColumnDragStart = useCallback((key: string, event: React.DragEvent<HTMLElement>) => {
@@ -109,11 +115,32 @@ export function useJiraBoardColumnOrder(
       const index = sections.findIndex((section) => section.key === key)
       const target = index === -1 ? undefined : sections[index + offset]
       if (target) {
+        // Keeping focus on the moved header is what lets arrow presses repeat. React
+        // preserves it today by moving rather than re-inserting the node; restoring it
+        // here does not depend on that staying true.
+        refocusKeyRef.current = key
         move(key, target.key)
       }
     },
     [move, sections]
   )
+
+  const registerColumnHeader = useCallback((key: string, node: HTMLElement | null) => {
+    if (node) {
+      headerRefs.current.set(key, node)
+    } else {
+      headerRefs.current.delete(key)
+    }
+  }, [])
+
+  useLayoutEffect(() => {
+    const key = refocusKeyRef.current
+    if (!key) {
+      return
+    }
+    refocusKeyRef.current = null
+    headerRefs.current.get(key)?.focus()
+  }, [sections])
 
   return {
     sections,
@@ -123,6 +150,7 @@ export function useJiraBoardColumnOrder(
     onColumnDragEnd,
     onColumnDragOver,
     onColumnDrop,
-    moveColumnBy
+    moveColumnBy,
+    registerColumnHeader
   }
 }

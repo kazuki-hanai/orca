@@ -94,6 +94,19 @@ try {
 
   expect(report.after).toEqual(['Done', 'To Do', 'In Progress'])
   report.saved = await page.evaluate(() => localStorage.getItem('orca.jira.board-column-order.v1'))
+
+  // A keyboard user can only repeat a move if focus follows the lane. Two presses in a
+  // row prove it, in the browser rather than in a DOM shim.
+  const keyboardLane = page.getByRole('button', { name: 'Reorder Done' })
+  await keyboardLane.focus()
+  await page.keyboard.press('ArrowRight')
+  await page.keyboard.press('ArrowRight')
+  report.afterKeyboard = await laneOrder(page)
+  report.keyboardFocus = await page.evaluate(() =>
+    document.activeElement?.getAttribute('aria-label')
+  )
+  expect(report.afterKeyboard).toEqual(['To Do', 'In Progress', 'Done'])
+  expect(report.keyboardFocus).toBe('Reorder Done')
   expect(errors).toEqual([])
   report.windows = await app.evaluate(({ BrowserWindow }) =>
     BrowserWindow.getAllWindows().map((window) => ({
