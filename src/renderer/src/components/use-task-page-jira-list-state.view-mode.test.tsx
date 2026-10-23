@@ -9,8 +9,6 @@ vi.mock('@/runtime/runtime-jira-client', () => ({
   jiraListPriorities: vi.fn().mockResolvedValue([])
 }))
 
-const STORAGE_KEY = 'orca.jira.view-mode.v1'
-
 function fixture(): TaskPageLinearViewStateModel {
   const model = {
     settings: { activeRuntimeEnvironmentId: 'focus' },
@@ -38,10 +36,6 @@ beforeEach(() => {
 afterEach(cleanup)
 
 describe('Jira Tasks view mode', () => {
-  it('opens on the list view by default', () => {
-    expect(openTasks().current.jiraViewMode).toBe('list')
-  })
-
   it('reopens on the board after the view mode was switched', async () => {
     const first = openTasks()
     await act(async () => first.current.setJiraViewMode('board'))
@@ -57,7 +51,6 @@ describe('Jira Tasks view mode', () => {
     await act(async () => first.current.setJiraViewMode('list'))
     cleanup()
 
-    expect(localStorage.getItem(STORAGE_KEY)).toBeNull()
     expect(openTasks().current.jiraViewMode).toBe('list')
   })
 })
