@@ -71,6 +71,9 @@ export function firstWorkRenameDeps(
         meta.branchNameWasExplicit !== true
       )
     },
+    // Affirmative provenance. A missing flag is a pre-existing worktree, not a derived name.
+    isBranchNameDerived: (worktreeId) =>
+      store.getWorktreeMeta(worktreeId)?.branchNameWasExplicit === false,
     setDisplayName: (worktreeId, displayName) => {
       rememberBranchRenameFailureOutput(worktreeId, null)
       const scope = parseWorkspaceKey(worktreeId)

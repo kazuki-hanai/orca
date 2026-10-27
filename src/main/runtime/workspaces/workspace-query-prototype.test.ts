@@ -526,8 +526,29 @@ describe('first-work rename lazy Store capabilities', () => {
     store.getWorktreeMeta = () => ({ ...orcaCreated, branchNameWasExplicit: true })
     expect(firstWorkRenameDeps(store, runtime).canRenameOrcaCreatedBranch('repo::/wt')).toBe(false)
 
-    store.getWorktreeMeta = () => orcaCreated
+    store.getWorktreeMeta = () => ({ ...orcaCreated, branchNameWasExplicit: false })
     expect(firstWorkRenameDeps(store, runtime).canRenameOrcaCreatedBranch('repo::/wt')).toBe(true)
+  })
+
+  it('treats missing branch-name provenance as unknown, not as derived', () => {
+    // Why: a worktree created before the flag existed must not be read as
+    // proof that Orca chose the name, which the non-ASCII path relies on.
+    const store = renameStore()
+    const runtime = new OrcaRuntimeService(null)
+    const legacy: WorktreeMeta = {
+      ...WORKTREE_META_PERSISTED_DEFAULTS,
+      displayName: '修正',
+      comment: '',
+      isUnread: false,
+      sortOrder: 0,
+      lastActivityAt: 0,
+      orcaCreationSource: 'desktop'
+    }
+    store.getWorktreeMeta = () => legacy
+    expect(firstWorkRenameDeps(store, runtime).isBranchNameDerived('repo::/wt')).toBe(false)
+
+    store.getWorktreeMeta = () => ({ ...legacy, branchNameWasExplicit: false })
+    expect(firstWorkRenameDeps(store, runtime).isBranchNameDerived('repo::/wt')).toBe(true)
   })
 
   it('looks up the current writer on each call and retains Store and Root receivers', () => {

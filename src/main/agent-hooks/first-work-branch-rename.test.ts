@@ -591,6 +591,32 @@ describe('maybeAutoRenameBranchOnFirstWork', () => {
     expect(onRenamed).not.toHaveBeenCalled()
   })
 
+  it('leaves a non-Latin branch untouched when creation never recorded the name provenance', async () => {
+    // Why: worktrees created before `branchNameWasExplicit` existed carry no
+    // flag, and a missing flag is not evidence that Orca derived the name.
+    // Creature names still qualify, since the leaf proves its own origin.
+    gitExecFileAsyncMock.mockImplementation(
+      gitResponder({ currentBranch: 'you/修正', hasUpstream: false })
+    )
+    const { deps, onRenamed } = makeDeps({
+      isBranchNameDerived: () => false,
+      getCurrentDisplayName: () => '修正'
+    })
+    await maybeAutoRenameBranchOnFirstWork(workingEvent(), deps)
+    expect(generateBranchNameMock).not.toHaveBeenCalled()
+    expect(onRenamed).not.toHaveBeenCalled()
+  })
+
+  it('still renames a creature branch with no recorded name provenance', async () => {
+    gitExecFileAsyncMock.mockImplementation(
+      gitResponder({ currentBranch: 'you/Nautilus', hasUpstream: false })
+    )
+    const { deps, onRenamed } = makeDeps({ isBranchNameDerived: () => false })
+    await maybeAutoRenameBranchOnFirstWork(workingEvent(), deps)
+    expect(generateBranchNameMock).toHaveBeenCalled()
+    expect(onRenamed).toHaveBeenCalledWith(REPO_ID)
+  })
+
   it('leaves a non-Latin branch the user typed into the branch field untouched', async () => {
     // Why: `branchNameOverride` reaches git as written, so `you/修正` is a name
     // the user chose, not one Orca folded from the workspace name. Provenance

@@ -1534,7 +1534,7 @@ async function performLocalWorktreeCreate(
     ...(args.cliProvenance ? { cliProvenance: args.cliProvenance } : {}),
     baseRef: metadataBaseRef,
     ...(checkoutExistingBranch ? { preserveBranchOnDelete: true } : {}),
-    ...(args.branchNameOverride ? { branchNameWasExplicit: true } : {}),
+    branchNameWasExplicit: Boolean(args.branchNameOverride),
     ...(configuredPushTarget ? { pushTarget: configuredPushTarget } : {}),
     ...resolveWorktreeCreateDisplayNameMeta(
       requestedDisplayName,
