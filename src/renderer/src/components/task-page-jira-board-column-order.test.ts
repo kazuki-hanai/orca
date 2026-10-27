@@ -1,7 +1,9 @@
 // @vitest-environment happy-dom
 import { beforeEach, describe, expect, it } from 'vitest'
+import { bumpProviderRuntimeSessionGeneration } from '@/lib/provider-runtime-context'
 import {
   applyJiraBoardColumnOrder,
+  getJiraBoardColumnOrderScopeKey,
   loadJiraBoardColumnOrder,
   mergeJiraBoardColumnOrder,
   moveJiraBoardColumn,
@@ -110,6 +112,33 @@ describe('mergeJiraBoardColumnOrder', () => {
       'review',
       'done'
     ])
+  })
+})
+
+describe('getJiraBoardColumnOrderScopeKey', () => {
+  const owner = { kind: 'environment', environmentId: 'remote-a' } as const
+  const project = { key: 'site-1:DEMO', projectKey: 'DEMO', siteId: 'site-1' }
+
+  it('names the same board after the runtime reconnects', () => {
+    const before = getJiraBoardColumnOrderScopeKey(null, owner, project)
+    bumpProviderRuntimeSessionGeneration()
+
+    expect(getJiraBoardColumnOrderScopeKey(null, owner, project)).toBe(before)
+  })
+
+  it('keeps another owner or project on its own order', () => {
+    const key = getJiraBoardColumnOrderScopeKey(null, owner, project)
+
+    expect(
+      getJiraBoardColumnOrderScopeKey(
+        null,
+        { kind: 'environment', environmentId: 'remote-b' },
+        project
+      )
+    ).not.toBe(key)
+    expect(
+      getJiraBoardColumnOrderScopeKey(null, owner, { ...project, key: 'site-1:OTHER' })
+    ).not.toBe(key)
   })
 })
 

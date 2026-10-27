@@ -1,4 +1,12 @@
+import { getEnvironmentRuntimeIdentityKey } from '@/lib/provider-runtime-context'
+import { runtimeTargetEnvironmentId } from '@/runtime/runtime-client-target'
+import type { RuntimeClientTarget } from '../../../shared/runtime-client-target'
+import {
+  getTaskSourceCacheScope,
+  type TaskSourceContext
+} from '../../../shared/task-source-context'
 import type { TaskPageJiraBoardSection } from './task-page-jira-board-sections'
+import type { TaskPageJiraProjectScope } from './task-page-jira-status-order'
 
 // Device-local, like the Jira list columns: Jira's Agile API exposes board column
 // order as read-only, so a reorder here is an Orca view preference, not a Jira edit.
@@ -8,6 +16,22 @@ const STORAGE_KEY = 'orca.jira.board-column-order.v1'
 const MAX_SCOPES = 20
 
 type StoredOrders = Record<string, string[]>
+
+/**
+ * Names one Jira board across launches. The status-order cache key also carries the runtime
+ * session generation, which moves on every reconnect and would strand the saved order.
+ */
+export function getJiraBoardColumnOrderScopeKey(
+  sourceContext: TaskSourceContext | null,
+  owner: RuntimeClientTarget | null,
+  projectScope: TaskPageJiraProjectScope | null
+): string {
+  return JSON.stringify([
+    sourceContext ? getTaskSourceCacheScope(sourceContext) : null,
+    owner ? getEnvironmentRuntimeIdentityKey(runtimeTargetEnvironmentId(owner)) : null,
+    projectScope?.key ?? null
+  ])
+}
 
 function readStoredOrders(): StoredOrders {
   try {
