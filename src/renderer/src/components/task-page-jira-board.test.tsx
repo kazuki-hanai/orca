@@ -69,6 +69,10 @@ describe('TaskPageJiraBoard', () => {
     const markup = renderBoard([issue('STA-1', todo), issue('STA-2', done)])
     expect(markup).toContain('aria-label="Reorder To Do"')
     expect(markup).toContain('aria-label="Reorder Done"')
+    // The label replaces the visible header, so the count must still reach screen readers.
+    expect(markup).toContain(
+      'aria-description="Issues in this lane: 1. Use the Left and Right arrow keys to move it."'
+    )
   })
 
   it('lays lanes out on one horizontally scrollable row', () => {

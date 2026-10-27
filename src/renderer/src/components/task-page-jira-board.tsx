@@ -170,6 +170,12 @@ export function TaskPageJiraBoard({
               aria-label={translate('jira.board.reorderColumn', 'Reorder {{column}}', {
                 column: section.label
               })}
+              // aria-label hides the header text, so restate the count and the keyboard move.
+              aria-description={translate(
+                'jira.board.reorderColumnHint',
+                'Issues in this lane: {{count}}. Use the Left and Right arrow keys to move it.',
+                { count: section.issues.length }
+              )}
               onDragStart={(event) => onColumnDragStart(section.key, event)}
               onDragEnd={onColumnDragEnd}
               onKeyDown={(event) => {

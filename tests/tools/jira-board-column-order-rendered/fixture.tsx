@@ -3,7 +3,11 @@ import { createRoot } from 'react-dom/client'
 import { TooltipProvider } from '../../../src/renderer/src/components/ui/tooltip'
 import { TaskPageJiraBoard } from '../../../src/renderer/src/components/task-page-jira-board'
 import { getJiraStatusTone } from '../../../src/renderer/src/components/task-page-jira-status-tone'
-import type { JiraIssue, JiraProjectStatusOrder, JiraStatus } from '../../../src/shared/jira-types'
+import type {
+  JiraIssue,
+  JiraProjectStatusOrder,
+  JiraStatus
+} from '../../../src/shared/jira/jira-types'
 import './fixture.css'
 
 const statusOrder: JiraProjectStatusOrder = {

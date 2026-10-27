@@ -3,7 +3,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { TaskPageJiraBoard } from './task-page-jira-board'
-import type { JiraIssue, JiraProjectStatusOrder } from '../../../shared/jira-types'
+import type { JiraIssue, JiraProjectStatusOrder } from '../../../shared/jira/jira-types'
 
 const statusOrder: JiraProjectStatusOrder = {
   statusIdsByColumn: [['todo'], ['doing'], ['done']],
