@@ -591,6 +591,22 @@ describe('maybeAutoRenameBranchOnFirstWork', () => {
     expect(onRenamed).not.toHaveBeenCalled()
   })
 
+  it('leaves a non-Latin branch the user typed into the branch field untouched', async () => {
+    // Why: `branchNameOverride` reaches git as written, so `you/修正` is a name
+    // the user chose, not one Orca folded from the workspace name. Provenance
+    // is the only thing that separates the two, since the leaf looks the same.
+    gitExecFileAsyncMock.mockImplementation(
+      gitResponder({ currentBranch: 'you/修正', hasUpstream: false })
+    )
+    const { deps, onRenamed } = makeDeps({
+      canRenameOrcaCreatedBranch: () => false,
+      getCurrentDisplayName: () => '修正'
+    })
+    await maybeAutoRenameBranchOnFirstWork(workingEvent(), deps)
+    expect(generateBranchNameMock).not.toHaveBeenCalled()
+    expect(onRenamed).not.toHaveBeenCalled()
+  })
+
   it('never rewrites a non-Latin branch that is already published', async () => {
     gitExecFileAsyncMock.mockImplementation(
       gitResponder({ currentBranch: 'you/検索ダイアログのバグを修正', hasUpstream: true })
