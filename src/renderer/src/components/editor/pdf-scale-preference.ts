@@ -2,6 +2,9 @@ import { getPinchZoomFactor, shouldHandleImageZoomWheel } from './image-viewer-z
 
 export type PdfScalePreference = 'page-width' | number
 
+/** Zoom range and button step shared by the paged document viewers (PDF, Word). */
+export const DOCUMENT_SCALE_BOUNDS = { min: 0.25, max: 5, step: 1.25 } as const
+
 export function clampPdfScale(scale: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, scale))
 }

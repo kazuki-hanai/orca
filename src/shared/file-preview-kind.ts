@@ -1,8 +1,12 @@
 import { IMAGE_FILE_MIME_TYPES } from './image-file-extensions'
 import { MEDIA_FILE_MIME_TYPES } from './media-file-extensions'
 
-export type FilePreviewKind = 'image' | 'pdf' | 'audio' | 'video'
+export type FilePreviewKind = 'image' | 'pdf' | 'audio' | 'video' | 'docx'
 export type FilePreview = { kind: FilePreviewKind; mimeType: string }
+
+/** Word documents, which only the editor previews, from a byte-range grant. */
+export const DOCX_MIME_TYPE =
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
 
 /** Images and PDFs, which local reads, `files.readPreview` and git blobs send whole. */
 export const IMAGE_AND_PDF_PREVIEW_MIME_TYPES: Readonly<Record<string, string>> = Object.freeze({
@@ -29,6 +33,9 @@ export function filePreviewForPath(filePath: string): FilePreview | null {
   if (media) {
     return { kind: media.startsWith('audio/') ? 'audio' : 'video', mimeType: media }
   }
+  if (extension === '.docx') {
+    return { kind: 'docx', mimeType: DOCX_MIME_TYPE }
+  }
   return null
 }
 
@@ -37,7 +44,15 @@ export function streamsPreviewByRange(preview: FilePreview | null): boolean {
   return preview?.kind === 'audio' || preview?.kind === 'video'
 }
 
-/** Images and PDFs read a URL when their viewer asks, and base64 elsewhere (diffs, the web client). */
+/**
+ * Images, PDFs and Word documents read a URL when their viewer asks; images and PDFs fall back
+ * to base64 elsewhere (diffs, the web client), Word documents to the binary placeholder.
+ */
 export function isDocumentPreview(preview: FilePreview | null): boolean {
-  return preview?.kind === 'image' || preview?.kind === 'pdf'
+  return preview?.kind === 'image' || preview?.kind === 'pdf' || preview?.kind === 'docx'
+}
+
+/** Viewers that read their grant's bytes over IPC rather than loading the URL in an element. */
+export function readsPreviewRangesOverIpc(preview: FilePreview | null): boolean {
+  return preview?.kind === 'pdf' || preview?.kind === 'docx'
 }

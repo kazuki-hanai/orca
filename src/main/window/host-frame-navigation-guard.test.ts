@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { PLUGIN_PANEL_FRAME_NAME_PREFIX } from '../../shared/plugins/frames/plugin-frame-bridge'
 import { NATIVE_CHAT_VISUAL_FRAME_NAME_PREFIX } from '../../shared/native-chat/native-chat-visual-shell'
+import { DOCX_PREVIEW_FRAME_NAME_PREFIX } from '../../shared/docx-preview-frame'
 import { HostFrameNavigationRegistry, hostFrameKindForName } from './host-frame-navigation-guard'
 
 function frame(input: { id: number; name?: string; url?: string }) {
@@ -76,5 +77,16 @@ describe('HostFrameNavigationRegistry', () => {
     expect(registry.shouldBlock(panels[0], panels[0], 'https://example.com')).toBe(true)
     expect(registry.shouldBlock(ordinary, panels[1], 'https://example.com')).toBe(true)
     expect(livenessChecks).toBeLessThanOrEqual(4)
+  })
+
+  it('contains a Word document preview frame after its srcdoc loads', () => {
+    const registry = new HostFrameNavigationRegistry()
+    const preview = frame({ id: 5, name: `${DOCX_PREVIEW_FRAME_NAME_PREFIX}tab` })
+    registry.register(preview)
+    expect(hostFrameKindForName(preview.name)).toBe('docx-preview')
+
+    expect(registry.shouldBlock(preview, null, 'about:srcdoc')).toBe(false)
+    // A document link clicked past the renderer's handler must not replace the preview.
+    expect(registry.shouldBlock(preview, preview, 'https://example.com')).toBe(true)
   })
 })

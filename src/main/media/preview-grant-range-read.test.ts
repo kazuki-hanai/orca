@@ -13,6 +13,7 @@ vi.mock('../wsl/wsl-unc-access-gate', () => ({
   guardWslUncPathAccess: vi.fn((_path: string, access: () => Promise<unknown>) => access())
 }))
 
+import { DOCX_MIME_TYPE } from '../../shared/file-preview-kind'
 import { resolveLocalFileRequestPath } from '../ipc/local-file-access-resolution'
 import { guardWslUncPathAccess } from '../wsl/wsl-unc-access-gate'
 import { readLocalFilePreview } from './media-preview-protocol'
@@ -54,6 +55,16 @@ describe('readPreviewGrantRange', () => {
     ).rejects.toThrow('Preview is no longer available')
   })
 
+  it('reads a Word document grant over IPC without routing it to the image viewer', async () => {
+    const filePath = join(directory, 'report.docx')
+    await writeFile(filePath, 'PK\u0003\u0004body')
+    const result = await readLocalFilePreview({ sender }, { filePath }, store, { documents: true })
+    expect(result).toMatchObject({ isBinary: true, mimeType: DOCX_MIME_TYPE, size: 8 })
+    expect(result?.isImage).toBeUndefined()
+    const bytes = await readPreviewGrantRange(sender, result?.mediaUrl ?? '', 4, 4)
+    expect(new TextDecoder().decode(bytes)).toBe('body')
+  })
+
   it('never wakes a stopped WSL distro to read a range', async () => {
     const url = await mint('doc.pdf', '%PDF-1.4 body')
     vi.mocked(resolveLocalFileRequestPath).mockClear()
@@ -62,7 +73,7 @@ describe('readPreviewGrantRange', () => {
     expect(resolveLocalFileRequestPath).not.toHaveBeenCalled()
   })
 
-  it('serves PDF grants only, within bounds, and nothing after teardown', async () => {
+  it('serves PDF and Word grants only, within bounds, and nothing after teardown', async () => {
     const pdf = await mint('doc.pdf', '%PDF-1.4')
     const image = await mint('shot.svg', '<svg/>')
     await expect(readPreviewGrantRange(sender, image, 0, 4)).rejects.toThrow()

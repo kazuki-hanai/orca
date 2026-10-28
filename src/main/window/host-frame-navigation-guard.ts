@@ -1,4 +1,5 @@
 import type { WebContents, WebFrameMain } from 'electron'
+import { DOCX_PREVIEW_FRAME_NAME_PREFIX } from '../../shared/docx-preview-frame'
 import { NATIVE_CHAT_VISUAL_FRAME_NAME_PREFIX } from '../../shared/native-chat/native-chat-visual-shell'
 import { PLUGIN_PANEL_FRAME_NAME_PREFIX } from '../../shared/plugins/frames/plugin-frame-bridge'
 
@@ -7,7 +8,8 @@ type NavigationFrame = Pick<WebFrameMain, 'frameTreeNodeId' | 'isDestroyed' | 'n
 /** Host-marked srcdoc classes contain navigation only; registration grants no plugin identity or action authority. */
 const HOST_FRAME_KINDS = [
   { kind: 'plugin-panel', namePrefix: PLUGIN_PANEL_FRAME_NAME_PREFIX },
-  { kind: 'chat-visual', namePrefix: NATIVE_CHAT_VISUAL_FRAME_NAME_PREFIX }
+  { kind: 'chat-visual', namePrefix: NATIVE_CHAT_VISUAL_FRAME_NAME_PREFIX },
+  { kind: 'docx-preview', namePrefix: DOCX_PREVIEW_FRAME_NAME_PREFIX }
 ] as const
 
 export type HostFrameKind = (typeof HOST_FRAME_KINDS)[number]['kind']

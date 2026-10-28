@@ -4,9 +4,10 @@ const isProductSource = (file) => !/\.test\.tsx?$/.test(file) && !isUnitTestSupp
 
 export const PR_EDITOR_PREVIEW_E2E_SOURCE_ROUTES = [
   {
-    // Image, PDF and media viewers read orca-media grants; the PDF reloads exercise remint and range reads.
+    // Image, PDF, Word and media viewers read orca-media grants; the PDF reloads exercise remint and range reads.
     id: 'editor.byte-range-preview',
     specs: [
+      'tests/e2e/docx-preview.spec.ts',
       'tests/e2e/editor-media-playback-position.spec.ts',
       'tests/e2e/media-preview-partition-isolation.spec.ts',
       'tests/e2e/paired-remote-large-file-open.spec.ts',
@@ -23,12 +24,15 @@ export const PR_EDITOR_PREVIEW_E2E_SOURCE_ROUTES = [
         /^src\/renderer\/src\/components\/editor\/(?:EditorEditFileSurface|EditorConflictReviewSurface)\.tsx$/.test(
           file
         ) ||
+        /^src\/renderer\/src\/components\/editor\/docx\/[^/]+\.tsx?$/.test(file) ||
         [
           'src/main/ipc/filesystem/filesystem-read-handlers.ts',
           'src/main/startup/privileged-custom-schemes.ts',
+          'src/main/window/host-frame-navigation-guard.ts',
           'src/preload/api/fs-bridge.ts',
           'src/renderer/src/runtime/runtime-file-range-preview.ts',
           'src/renderer/src/runtime/runtime-file-read-client.ts',
+          'src/shared/docx-preview-frame.ts',
           'src/shared/file-preview-kind.ts'
         ].includes(file))
   }

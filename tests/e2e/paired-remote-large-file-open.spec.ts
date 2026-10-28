@@ -8,6 +8,7 @@ import {
   launchPairedElectronClient,
   type PairedElectronClient
 } from './helpers/paired-electron-client'
+import { createDocxPreviewFixture } from './helpers/docx-preview-fixture'
 import { createPdfFindFixture } from './helpers/pdf-find-fixture'
 import { waitForActiveWorktree, waitForSessionReady } from './helpers/store'
 
@@ -45,6 +46,9 @@ test('opens HTML and PDF files larger than one RPC reply on a paired runtime', a
       kind: 'html' as const
     }))
   ]
+  const docxPath = path.join(testRepoPath, 'quarterly-report.docx')
+  writeFileSync(docxPath, createDocxPreviewFixture({ linkUrl: 'https://example.com/report' }))
+  registerPostElectronShutdownCleanup(async () => rmSync(docxPath, { force: true }))
   for (const fixture of fixtures) {
     const fixturePath = path.join(testRepoPath, fixture.name)
     writeFileSync(
@@ -128,6 +132,23 @@ test('opens HTML and PDF files larger than one RPC reply on a paired runtime', a
       await expect(page.getByText('Unable to load file')).toHaveCount(0)
       await page.screenshot({ path: testInfo.outputPath(`${fixture.name}.png`) })
     }
+
+    // A .docx reads through the byte-range preview grant over files.stat/files.readChunk.
+    await openExplorerFile(page, 'quarterly-report.docx')
+    await expect
+      .poll(
+        () =>
+          page
+            .locator('iframe[name^="orca-docx-preview:"]')
+            .evaluate((element) =>
+              element instanceof HTMLIFrameElement
+                ? (element.contentDocument?.body.innerText ?? '')
+                : ''
+            ),
+        { timeout: 60_000, message: 'paired client never rendered the Word document' }
+      )
+      .toContain('Appendix on the second page')
+    await page.screenshot({ path: testInfo.outputPath('quarterly-report.docx.png') })
   } finally {
     await client?.page
       .screenshot({ path: testInfo.outputPath('paired-large-file-final.png') })

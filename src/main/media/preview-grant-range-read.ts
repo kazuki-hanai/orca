@@ -1,3 +1,4 @@
+import { readsPreviewRangesOverIpc } from '../../shared/file-preview-kind'
 import { openLocalPreviewGrantFile } from './local-preview-grant-file'
 import {
   previewGrantForSender,
@@ -15,7 +16,7 @@ import {
 export const PREVIEW_RANGE_READ_MAX_BYTES = 4 * 1024 * 1024
 
 /**
- * A PDF grant's bytes for the renderer that minted it. pdf.js reads ranges here instead of over
+ * A PDF or Word document grant's bytes for the renderer that minted it, read here instead of over
  * fetch, so orca-media needs no fetch or CORS privileges and no other page or frame can read them.
  */
 export async function readPreviewGrantRange(
@@ -35,7 +36,7 @@ export async function readPreviewGrantRange(
   }
   // Per window: its iframes share the id, but only its main frame has the preload API.
   const found = previewGrantForSender(url, sender.id)
-  if (!found || found.grant.preview.kind !== 'pdf') {
+  if (!found || !readsPreviewRangesOverIpc(found.grant.preview)) {
     throw new Error('Preview is no longer available')
   }
   const { token, grant } = found

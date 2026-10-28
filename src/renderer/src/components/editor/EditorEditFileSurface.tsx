@@ -5,9 +5,11 @@ import type { GitDiffResult } from '../../../../shared/git-diff-compare-types'
 import type { GitStatusEntry } from '../../../../shared/git-status-types'
 import { ChangesModeView } from './ChangesModeView'
 import { ConflictBanner, ConflictPlaceholderView } from './ConflictComponents'
+import { DOCX_MIME_TYPE } from '../../../../shared/file-preview-kind'
 import {
   CsvViewer,
   CsvPagedViewer,
+  DocxViewer,
   ImageViewer,
   IpynbViewer,
   MermaidViewer,
@@ -149,6 +151,18 @@ export function EditorEditFileSurface({
     )
   }
   if (fileContent.isBinary) {
+    if (fileContent.mediaUrl && fileContent.mimeType === DOCX_MIME_TYPE) {
+      return (
+        <DocxViewer
+          src={fileContent.mediaUrl}
+          byteSize={fileContent.size}
+          filePath={activeFile.filePath}
+          worktreeId={activeFile.worktreeId}
+          runtimeEnvironmentId={activeFile.runtimeEnvironmentId}
+          scrollCacheKey={pdfViewStateKey}
+        />
+      )
+    }
     if (fileContent.mediaUrl && !fileContent.isImage) {
       return (
         <MediaViewer

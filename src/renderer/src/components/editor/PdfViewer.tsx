@@ -18,6 +18,7 @@ import { createPdfDocumentLoader, type PdfDocumentLoader } from './pdf-document-
 import { createPdfViewerSession } from './pdf-viewer-session'
 import {
   applyPdfScalePreference,
+  DOCUMENT_SCALE_BOUNDS,
   stepPdfScalePreference,
   type PdfScalePreference
 } from './pdf-scale-preference'
@@ -27,10 +28,9 @@ import { listenForViewerZoomRequests } from './viewer-zoom-request'
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl
 
-const MIN_SCALE = 0.25
-const MAX_SCALE = 5
-const SCALE_STEP = 1.25
-const SCALE_BOUNDS = { min: MIN_SCALE, max: MAX_SCALE, step: SCALE_STEP }
+const SCALE_BOUNDS = DOCUMENT_SCALE_BOUNDS
+const MIN_SCALE = SCALE_BOUNDS.min
+const MAX_SCALE = SCALE_BOUNDS.max
 
 type PdfViewerProps = {
   /** Base64 bytes, for git blobs, diffs and the web client. */

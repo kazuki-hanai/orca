@@ -3,7 +3,7 @@ import type { WebContents } from 'electron'
 import type { Store } from '../persistence'
 import type { LocalFileAccess } from '../../shared/local-file-access'
 import { MEDIA_PREVIEW_SCHEME } from '../../shared/media-file-extensions'
-import { isDocumentPreview, type FilePreview } from '../../shared/file-preview-kind'
+import type { FilePreview } from '../../shared/file-preview-kind'
 import type { RemoteFilePreviewAddress } from '../../shared/remote-file-preview-address'
 import { abortWhenRendererGone } from '../ipc/renderer-lifetime-abort'
 import { statRemotePreviewFile, type RemotePreviewFileSnapshot } from './remote-file-preview-reader'
@@ -87,7 +87,8 @@ export function mintPreviewUrl(
     isBinary: true,
     mimeType,
     mediaUrl: `${MEDIA_PREVIEW_SCHEME}://file/${token}?revision=${randomUUID()}`,
-    ...(isDocumentPreview(preview) ? { isImage: true as const } : {}),
+    // Why not Word documents: ImageViewer routes on isImage; they have their own viewer.
+    ...(preview.kind === 'image' || preview.kind === 'pdf' ? { isImage: true as const } : {}),
     ...(byteSize !== undefined ? { size: byteSize } : {})
   }
 }

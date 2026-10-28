@@ -15,7 +15,7 @@ export function createOrcaMediaRangeTransport(
   let aborted = false
   class OrcaMediaRangeTransport extends PDFDataRangeTransport {
     override requestDataRange(begin: number, end: number): void {
-      void readRange(url, begin, end, () => aborted)
+      void readOrcaMediaRange(url, begin, end, () => aborted)
         .then((chunk) => {
           if (!aborted) {
             this.onDataRange(begin, chunk)
@@ -36,18 +36,19 @@ export function createOrcaMediaRangeTransport(
   return new OrcaMediaRangeTransport(length, null)
 }
 
-async function readRange(
+/** An orca-media grant's bytes [begin, end), read over IPC in pieces main accepts. */
+export async function readOrcaMediaRange(
   url: string,
   begin: number,
   end: number,
   isAborted: () => boolean
-): Promise<Uint8Array> {
+): Promise<Uint8Array<ArrayBuffer>> {
   const range = new Uint8Array(end - begin)
   let read = 0
   while (begin + read < end) {
     // A closed or reloaded viewer schedules no further pieces.
     if (isAborted()) {
-      throw new Error('PDF range read cancelled')
+      throw new Error('Preview range read cancelled')
     }
     const piece = await window.api.fs.readPreviewRange({
       url,
@@ -55,7 +56,7 @@ async function readRange(
       length: Math.min(PREVIEW_RANGE_READ_MAX_BYTES, end - begin - read)
     })
     if (piece.byteLength === 0) {
-      throw new Error('PDF ended before the requested range')
+      throw new Error('File ended before the requested range')
     }
     range.set(piece, read)
     read += piece.byteLength
